@@ -1,74 +1,108 @@
 # Kali Hyprland Configuration
 
-A modern, beautiful Hyprland setup for Kali Linux with rounded corners, blur effects, smooth animations, and an elegant green theme.
+A complete Kali Linux desktop configuration repository with both **Hyprland** (modern Wayland) and **i3-gaps** (classic X11) setups. Choose your preferred environment or install both!
 
 ![Preview](field1.jpg)
 
-## Features
+##  Two Setups in One Repository
 
-- 🎨 **Rounded Corners** (12px radius)
-- 💫 **Blur Background** for transparent windows (optimized for performance)
-- ✨ **Smooth Animations** - Overshot bezier curves for satisfying window movements
-- 🌿 **Green Theme** - Matching Kali Linux aesthetic (#43a047)
-- ⚡ **Performance Optimized** - Hardware-accelerated with Wayland
-- 🎯 **i3-like Keybindings** - Easy transition from i3wm
+### Hyprland (Wayland) - Recommended ⭐
+Modern, smooth, GPU-accelerated compositor with built-in effects.
 
-## What's Included
+**Features:**
+-  **Rounded Corners** (12px radius)
+-  **Blur Background** - Optimized dual_kawase blur
+-  **Smooth Animations** - Overshot bezier curves
+-  **Kali Green Theme** (#43a047)
+-  **High Performance** - Hardware-accelerated, no freezing
+-  **i3-like Keybindings** - Easy transition from i3
 
-- **Hyprland** - Dynamic tiling Wayland compositor with built-in effects
-- **Waybar** - Customizable status bar (replaces i3bar)
-- **Wofi** - Application launcher (replaces rofi)
-- **Kitty** - Terminal with transparency support
-- **Dunst** - Notification daemon
+**Components:**
+- Hyprland (compositor + WM)
+- Waybar (status bar)
+- Wofi (app launcher)
+- Kitty (terminal)
+- Dunst (notifications)
 
-## Installation
+### i3-gaps (X11) - Classic Setup
+Traditional tiling window manager setup from the original kali-clean repo.
 
-### Quick Install
+**Features:**
+- Classic i3 tiling workflow
+- Compton compositor
+- Rofi launcher
+- Alacritty terminal
+- Pywal color schemes
+
+**Components:**
+- i3-gaps (window manager)
+- i3blocks (status bar)
+- Compton (compositor)
+- Rofi (app launcher)
+- Alacritty (terminal)
+
+##  Quick Install
+
+### One-Line Installation
 
 ```bash
-# Install all dependencies
-sudo apt install -y hyprland waybar wofi dunst grim slurp wl-clipboard swaylock swayidle xdg-desktop-portal-hyprland kitty
-
-# Copy configuration files
-cp -r .config/* ~/.config/
-
-# Make sure kitty config exists
-mkdir -p ~/.config/kitty
+git clone https://github.com/KermitPurple96/Kali-Hyprland
+cd Kali-Hyprland
+chmod +x install.sh
+./install.sh
 ```
 
-### Manual Installation
+The installer will ask you which setup you want:
+1. **Hyprland only** - Modern Wayland setup
+2. **i3-gaps only** - Classic X11 setup
+3. **Both** - Install both, choose at login
 
-1. Install Hyprland and dependencies:
-```bash
-sudo apt update
-sudo apt install -y hyprland waybar wofi dunst grim slurp wl-clipboard swaylock swayidle xdg-desktop-portal-hyprland
+##  What's Included
+
+### Hyprland Configuration
+```
+.config/
+├── hypr/
+│   └── hyprland.conf      # Main Hyprland config
+├── waybar/
+│   ├── config             # Waybar configuration
+│   └── style.css          # Waybar styling
+├── wofi/
+│   ├── config             # Wofi launcher config
+│   └── style.css          # Wofi styling
+└── kitty/
+    └── kitty.conf         # Terminal configuration
 ```
 
-2. Copy configuration files:
-```bash
-cp -r .config/hypr ~/.config/
-cp -r .config/waybar ~/.config/
-cp -r .config/wofi ~/.config/
+### i3-gaps Configuration
+```
+.config/
+├── i3/
+│   ├── config             # i3 configuration
+│   ├── i3blocks.conf      # Status bar config
+│   └── clipboard_fix.sh   # Clipboard fix script
+├── compton/
+│   └── compton.conf       # Compositor config
+├── rofi/
+│   └── config             # Rofi launcher config
+├── alacritty/
+│   └── alacritty.yml      # Terminal configuration
+└── .wallpaper/            # Wallpaper directory
 ```
 
-3. Start Hyprland:
-```bash
-Hyprland
-```
+## ⌨️ Keybindings
 
-## Keybindings
+Both setups use `Super` (Windows key) as the main modifier.
 
-All keybindings use `Super` (Windows key) as the modifier.
-
-### Essential
-- `Super + Enter` - Open terminal (Kitty)
-- `Super + D` - Application launcher (Wofi)
+### Essential (Same for Both)
+- `Super + Enter` - Open terminal
+- `Super + D` - Application launcher
 - `Super + Shift + Q` - Close window
-- `Super + Shift + E` - Exit Hyprland
+- `Super + Shift + E` - Exit WM/compositor
 - `Super + F` - Fullscreen
-- `Super + V` - Toggle floating
+- `Super + V` - Toggle floating (Hyprland) / Toggle tiling (i3)
 
-### Window Navigation (i3-style)
+### Window Navigation
 - `Super + J/K/I/O` - Move focus (left/down/up/right)
 - `Super + Shift + J/K/I/O` - Move window
 - `Super + Arrow Keys` - Alternative navigation
@@ -77,73 +111,198 @@ All keybindings use `Super` (Windows key) as the modifier.
 - `Super + 1-9` - Switch to workspace
 - `Super + Shift + 1-9` - Move window to workspace
 
-### Resize Mode
-- `Super + R` - Enter resize mode
-  - `Arrow Keys` or `J/K/I/O` - Resize window
-  - `Escape` or `Enter` - Exit resize mode
+### Hyprland Specific
+- `Super + R` - Resize mode
+- `Super + Shift + P` - Screenshot (grim + slurp)
+- `Super + Shift + R` - Reload config
 
-### Screenshots
-- `Super + Shift + P` - Screenshot (select area)
+### i3 Specific
+- `Super + H` - Split horizontal
+- `Super + V` - Split vertical
+- `Super + S` - Stacking layout
+- `Super + W` - Tabbed layout
+- `Super + E` - Toggle split layout
 
-### System
-- `Super + Shift + R` - Reload Hyprland config
+##  Customization
 
-## Customization
+### Hyprland
 
-### Change Theme Colors
-
+#### Change Colors
 Edit `~/.config/hypr/hyprland.conf`:
 ```conf
-col.active_border = rgba(43a047ee)  # Active window border (green)
+col.active_border = rgba(43a047ee)  # Active border (green)
+col.inactive_border = rgba(333333aa) # Inactive border
 ```
 
-Edit `~/.config/waybar/style.css` to change bar colors.
-
-### Adjust Blur Strength
-
-Edit `~/.config/hypr/hyprland.conf`:
+#### Adjust Blur
 ```conf
 blur {
-    size = 6        # Blur radius (higher = more blur)
-    passes = 3      # Quality (higher = better but slower)
+    size = 6        # Blur radius (1-20)
+    passes = 3      # Quality (1-4, higher = slower)
 }
 ```
 
-### Modify Animations
-
-Edit `~/.config/hypr/hyprland.conf`:
+#### Modify Animations
 ```conf
-animation = windows, 1, 5, overshot, slide  # 5 = speed
+animation = windows, 1, 5, overshot, slide
+#                    ^  ^  ^         ^
+#                    |  |  |         └─ Animation type
+#                    |  |  └─────────── Bezier curve
+#                    |  └────────────── Speed (1-10)
+#                    └───────────────── Enabled (1/0)
 ```
 
-## Troubleshooting
+### i3-gaps
+
+#### Set Wallpaper & Colors
+```bash
+# Set wallpaper and generate color scheme
+pywal -i ~/.wallpaper/yourimage.jpg
+
+# Or use feh directly
+feh --bg-scale ~/path/to/wallpaper.jpg
+```
+
+#### Change Theme
+```bash
+# Run appearance settings
+lxappearance
+# Select arc-dark theme
+```
+
+##  Manual Installation
+
+### Install Dependencies
+
+**For Hyprland:**
+```bash
+sudo apt install -y hyprland waybar wofi dunst grim slurp \
+    wl-clipboard swaylock swayidle xdg-desktop-portal-hyprland kitty
+```
+
+**For i3-gaps:**
+```bash
+sudo apt install -y i3 i3blocks rofi compton alacritty feh \
+    arandr arc-theme lxappearance python3-pip
+pip3 install pywal
+```
+
+### Copy Configurations
+
+```bash
+# Copy desired configs
+cp -r .config/hypr ~/.config/     # Hyprland
+cp -r .config/waybar ~/.config/   # Waybar
+cp -r .config/i3 ~/.config/       # i3
+cp -r .config/kitty ~/.config/    # Kitty
+# ... etc
+```
+
+##  Troubleshooting
 
 ### Hyprland won't start
-- Make sure you're on a system with a compatible GPU
-- Check `~/.config/hypr/hyprland.conf` for syntax errors
+- Ensure you have a compatible GPU (Intel, AMD, or NVIDIA with proper drivers)
+- Check logs: `cat ~/.local/share/hyprland/hyprland.log`
+- Verify config: `hyprland --check`
 
 ### Blur is laggy
-- Reduce blur passes in config:
-  ```conf
-  passes = 2  # or 1 for minimal blur
-  ```
+Reduce blur quality in `~/.config/hypr/hyprland.conf`:
+```conf
+passes = 2  # or even 1
+size = 4    # reduce from 6
+```
 
 ### Waybar not showing
-- Check if waybar is running: `ps aux | grep waybar`
-- Restart: `killall waybar && waybar &`
+```bash
+killall waybar
+waybar &
+```
 
-## Tips
+### i3 clipboard issues
+The clipboard fix script should run automatically. If not:
+```bash
+~/.config/i3/clipboard_fix.sh
+```
 
-1. **First time?** The config is similar to i3, so muscle memory transfers easily
-2. **Performance** - Hyprland uses GPU acceleration, so it's much smoother than i3+picom
-3. **Customize** - All configs are in `~/.config/` - edit to your liking!
+### Pywal not working
+```bash
+pip3 install --user pywal
+# Make sure ~/.local/bin is in PATH
+export PATH="$HOME/.local/bin:$PATH"
+```
 
-## Credits
+##  Comparison: Hyprland vs i3-gaps
 
-- Author: KermitPurple96
-- Based on Hyprland by vaxerski
-- Inspired by Kali Linux default themes
+| Feature | Hyprland | i3-gaps |
+|---------|----------|---------|
+| Display Server | Wayland | X11 |
+| Rounded Corners |  Built-in |  Needs separate tool |
+| Blur |  Fast, built-in | ️ Slow with picom/compton |
+| Animations |  Smooth | ️ Limited |
+| Performance |  High |  Good |
+| Stability |  Very stable |  Very stable |
+| Tearing |  No tearing | ️ Can occur |
+| Learning Curve |  Medium |  Medium |
+| App Compatibility | ️ Most apps (XWayland) |  All X11 apps |
+| Gaming |  Good |  Good |
+| VM Support | ️ May have issues |  Excellent |
 
-## License
+**Recommendation:**
+- **Physical machine → Hyprland** (better performance, modern features)
+- **Virtual machine → i3-gaps** (better compatibility)
+
+##  Tips
+
+1. **First time with Hyprland?** The keybindings are similar to i3, so muscle memory transfers!
+2. **Performance tip:** Hyprland uses GPU acceleration, much smoother than i3+picom
+3. **Missing wallpaper?** Copy your images to `~/.wallpaper/` directory
+4. **Customize!** All configs are in `~/.config/` - edit to your liking
+5. **Switch between setups:** Both can be installed - just select at login screen
+
+##  Repository Structure
+
+```
+Kali-Hyprland/
+├── .config/
+│   ├── hypr/           # Hyprland config
+│   ├── waybar/         # Waybar config
+│   ├── wofi/           # Wofi config
+│   ├── i3/             # i3 config
+│   ├── compton/        # Compton config
+│   ├── rofi/           # Rofi config
+│   ├── alacritty/      # Alacritty config
+│   └── kitty/          # Kitty config
+├── .wallpaper/         # Wallpaper directory
+├── .fehbg              # Wallpaper setter script
+├── install.sh          # Installation script
+├── README.md           # This file
+└── field1.jpg          # Preview image
+```
+
+##  Contributing
+
+Feel free to submit issues, fork the repository, and create pull requests for any improvements!
+
+##  License
 
 MIT License - Feel free to use and modify!
+
+##  Credits
+
+- **Author:** KermitPurple96
+- **Hyprland:** by [vaxerski](https://github.com/hyprwm/Hyprland)
+- **i3-gaps:** by [Airblader](https://github.com/Airblader/i3)
+- **Original i3 setup:** From [kali-clean](https://github.com/KermitPurple96/kali-clean)
+- **Inspired by:** Kali Linux default themes
+
+##  Support
+
+- **Issues:** https://github.com/KermitPurple96/Kali-Hyprland/issues
+- **Hyprland Wiki:** https://wiki.hyprland.org
+- **i3 User's Guide:** https://i3wm.org/docs/userguide.html
+
+---
+
+**Enjoy your beautiful Kali Linux setup! **
+
+*Generated with [Claude Code](https://claude.com/claude-code)*
