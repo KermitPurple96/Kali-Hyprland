@@ -222,12 +222,14 @@ hl.env("WLR_NO_HARDWARE_CURSORS",  "1")
 
 hl.config({
     general = {
-        -- i3-kitty: `gaps inner 4` / `gaps outer 2`.
-        -- Note this is the other way round from kali-clean, which had
-        -- inner 2 / outer 4: more space between windows, less around the
-        -- edge of the screen.
+        -- gaps_in  = between windows        (i3 `gaps inner`)
+        -- gaps_out = between windows and the SCREEN EDGE (i3 `gaps outer`)
+        --
+        -- i3-kitty had inner 4 / outer 2, which left windows almost flush
+        -- against the edge of the screen. The spacing between windows was
+        -- already fine, so only gaps_out goes up.
         gaps_in  = 4,
-        gaps_out = 2,
+        gaps_out = 10,
 
         -- 1px: as thin as Hyprland will draw and still show a colour.
         -- (0 removes the border entirely, along with the focus indicator
@@ -579,6 +581,14 @@ hl.bind(mainMod .. " + D",              hl.dsp.exec_cmd(menu))
 -- Extra: file manager
 hl.bind(mainMod .. " + SHIFT + Return", hl.dsp.exec_cmd(fileManager))
 
+-- Browser. Goes through a wrapper because Firefox is single-instance per
+-- profile and finds the running copy over the *user* D-Bus bus, which
+-- dbus-user-session shares across every login session -- so while the X11
+-- session is also logged in, a plain `firefox` here just makes a window
+-- appear over there. scripts/firefox.sh detects that and starts an
+-- independent instance instead. See the header of that script.
+hl.bind(mainMod .. " + SHIFT + F", hl.dsp.exec_cmd("~/.config/hypr/scripts/firefox.sh"))
+
 -- --- Focus -----------------------------------------------------------------
 -- i3-kitty uses j = left, k = down, i = up, o = right.
 --
@@ -640,9 +650,42 @@ hl.bind(mainMod .. " + F", hl.dsp.window.fullscreen({ action = "toggle" }))
 -- (To make SUPER+SPACE the float toggle instead, swap the two dispatchers
 -- below -- nothing else depends on either.)
 
--- Float / unfloat the focused window. `action = "toggle"` is the exact
--- form used in Hyprland's own bundled default config, so it is known-good.
-hl.bind(mainMod .. " + SHIFT + space", hl.dsp.window.float({ action = "toggle" }))
+-- Float / unfloat the focused window, and give it a sane size when it
+-- becomes floating.
+--
+-- Hyprland hands a newly-floated window whatever geometry it had while
+-- tiled, so floating a full-height tile produced a full-height floating
+-- window. These two fractions of the monitor decide the shape instead --
+-- deliberately wider than tall, so the window is SHORT in height.
+-- Change them and reload (SUPER+SHIFT+C); nothing else depends on them.
+local FLOAT_W = 0.55   -- 55% of the monitor width
+local FLOAT_H = 0.40   -- 40% of the monitor height
+
+hl.bind(mainMod .. " + SHIFT + space", function()
+    hl.dispatch(hl.dsp.window.float({ action = "toggle" }))
+
+    local win = hl.get_active_window()
+    -- Only resize on the way INTO floating. Going back to tiled, the
+    -- layout owns the geometry and we must not touch it.
+    if not win or not win.floating then return end
+
+    local mon = hl.get_active_monitor()
+    if not mon then return end
+
+    -- HL.Monitor.width/height are in physical pixels; divide by scale to
+    -- get the logical size a window is placed in.
+    local scale = mon.scale
+    if not scale or scale == 0 then scale = 1 end
+    local w = math.floor((mon.width  / scale) * FLOAT_W)
+    local h = math.floor((mon.height / scale) * FLOAT_H)
+
+    -- resize takes { x, y, relative?, window? }. Without `relative` the
+    -- values are the target SIZE rather than a delta -- that is what the
+    -- optional flag is distinguishing, and it mirrors the legacy
+    -- `resizeactive exact W H` form.
+    hl.dispatch(hl.dsp.window.resize({ x = w, y = h }))
+    hl.dispatch(hl.dsp.window.center())
+end)
 
 -- i3's `focus mode_toggle`, implemented properly.
 --
