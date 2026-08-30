@@ -16,30 +16,88 @@ A complete Kali Linux desktop configuration repository with both **Hyprland** (m
 >
 > Root cause, every change, and the dead ends already ruled out are written up
 > in **[VMWARE-NOTES.md](VMWARE-NOTES.md)**. Two things that bite immediately:
-> Hyprland 0.56 reads **`hyprland.lua`** and ignores `hyprland.conf` outright,
-> and `fix-hyprland-vmware.sh` is obsolete (it sets wlroots variables that 0.56
-> does not use).
+> the config format is now **Lua** (`hyprland.lua`; a `hyprland.conf` still
+> loads on 0.56 but prints *"support for which will be removed in Hyprland
+> 0.57"*), and `fix-hyprland-vmware.sh` is obsolete — it sets wlroots variables
+> that 0.56 does not use.
 
 ##  Two Setups in One Repository
 
 ### Hyprland (Wayland) - Recommended ⭐
 Modern, smooth, GPU-accelerated compositor with built-in effects.
 
-**Features (desktop profile, `.config/hypr/hyprland.conf`):**
--  **Rounded Corners** (12px radius)
--  **Blur Background** - Optimized dual_kawase blur
--  **Smooth Animations** - Overshot bezier curves
--  **Kali Green Theme** (#43a047)
--  **High Performance** - Hardware-accelerated, no freezing
--  **i3-like Keybindings** - Easy transition from i3
+**The look is [kali-clean](https://github.com/KermitPurple96/kali-clean)'s**,
+down to the hex values — same palette, same `gaps inner 2 / outer 4`, same bar
+layout, same keybindings — plus the three things i3 could never do:
 
-**Features (VM profile, `vmware/hyprland.lua`):**
-- Blur, shadows and animations **off on purpose** — on llvmpipe they cost far
-  more than they're worth. Rounding (6px) is cheap enough to keep.
-- `vfr` on, so idle frames aren't redrawn. Biggest single CPU win in a VM.
+| | |
+|---|---|
+| **Rounded corners** | 10px, on every window |
+| **Blur** | behind kitty, the bar, the launcher and notifications |
+| **Animations** | overshot bezier on open/close, wind on move, fades on focus |
+| **Borders** | 3px, on every window — kali-clean's 2px, thickened |
+
+The wallpaper is John Martin's *Le Pandemonium* (Louvre), installed to
+`~/.wallpaper/John_Martin_Le_Pandemonium_Louvre.jpg` and picked up by both
+sessions — `swaybg` under Hyprland, `feh` via `~/.fehbg` under i3.
+
+**The palette, straight out of the kali-clean i3 config:**
+
+| Role | Hex | Where it came from |
+|---|---|---|
+| Ground | `#1C1D2B` | i3bar `background` |
+| Raised | `#282A3E` | `focused_workspace` |
+| Text | `#E6FFF5` | `statusline` |
+| Accent | `#82c8ff` | `client.focused` |
+| Inactive | `#333333` | `client.unfocused` |
+| Urgent | `#900000` | `client.urgent` |
+| VPN up | `#3BB92D` | i3blocks `[iface]` `color=` |
+
+**Built for a machine with no GPU.** In a VMware guest, "Accelerate 3D
+graphics" is often not an option at all — on many hosts the VM simply stops
+booting with it on — so this config assumes `vmwgfx` reports *"Available
+shader model: Legacy"*, there is no GLES 3.x, and Hyprland renders through
+**llvmpipe on the CPU**. The effects stay; they are just chosen with the
+per-pixel cost in mind.
+
+One config, three profiles, selected with an environment variable:
+
+| `HYPR_EFFECTS` | Blur | Shadows | Window anims | Workspace anims |
+|---|---|---|---|---|
+| `soft` **(default)** | 1 pass, size 4, xray, cached | — | yes, 300ms | — |
+| `full` | 2 passes, size 6, noise + vibrancy | yes | yes, 500ms | slidevert |
+| `lite` | — | — | — | — |
+
+Rounded corners are in all three. `soft` is the default because it is the one
+that makes sense without a GPU; `full` is there for real hardware.
+
+**Why those particular cuts?** Software rendering cost is *damaged pixels ×
+passes over them*:
+
+- **blur passes are a multiplier** — one pass costs about half of two
+- **`new_optimizations`** caches blur for surfaces that have not changed, so a
+  still terminal costs nothing per frame. It is on in every profile.
+- **`xray`** lets floating windows blur the wallpaper instead of re-blurring
+  the windows stacked under them
+- **noise and vibrancy** are extra per-pixel maths on top of the blur itself
+- **workspace animations redraw every pixel on screen** for their whole
+  duration, and it is the action you trigger most often — so `soft` switches
+  workspaces instantly and keeps the animations that are bounded to one
+  window's box
+- **shadows** are overdraw around every window for the smallest visual return
+
+In a VM, `vmware/install-vmware.sh` installs a **"Hyprland (lite)"** entry at
+the login screen. Everything else — colours, keybinds, bar, launcher — is
+identical across all three.
+
+**Measuring instead of guessing:** start a session with `HYPR_OVERLAY=1` for
+Hyprland's frame-timing overlay, change one value in `hyprland.lua`, and press
+`Super + Shift + C` to reload.
+
+**Also kept from the VM work:**
+- `debug.vfr` on, so idle frames aren't redrawn. Biggest single CPU win in a VM.
 - A terminal opens at login no matter what, and the rescue keybinds avoid
   `SUPER` — so a broken session is still recoverable.
-- Blue border (`rgba(33ccffee)`), not the green of the desktop profile.
 
 **Components:**
 - Hyprland (compositor + WM)
@@ -60,11 +118,79 @@ Traditional tiling window manager setup from the original kali-clean repo.
 - Pywal color schemes
 
 **Components:**
-- i3-gaps (window manager)
+- i3 (window manager — gaps are built into upstream i3 since 4.22, so this
+  is the plain Kali `i3` package, not a source build of `i3-gaps`)
 - i3blocks (status bar)
 - Compton (compositor)
 - Rofi (app launcher)
 - Alacritty (terminal)
+
+##  Testing it without risking a black screen
+
+Read this before you log out. There are three independent escapes, and they
+fail in different ways on purpose.
+
+### 1. `Ctrl + Alt + F3` — the one that always works
+
+Switches to a text console. This is **not** a keybind in this config, and
+deliberately so: Hyprland handles `Ctrl+Alt+F1..F12` internally in
+`CKeybindManager::handleVT`, called straight from `onKeyEvent`. That path
+never consults the active submap or any user keybind, and it performs the
+switch through **libseat → logind**, so it needs no root. It keeps working
+when every other binding in this file is broken.
+
+Verified on this machine, not assumed:
+
+| Link in the chain | Checked |
+|---|---|
+| `Ctrl+Alt+F3` produces the `XF86_Switch_VT_3` keysym | `symbols/pc` includes `srvr_ctrl(fkey2vt)`, key type `CTRL+ALT` |
+| Hyprland acts on that keysym | binary range-checks `0x1008fe01` then calls `Aquamarine::CSession::switchVT` |
+| the switch needs no root | `switchVT` → `libseat_switch_session` |
+| a login prompt appears on VT3 | `autovt@.service → getty@.service`, logind `NAutoVTs=6` |
+| the submap cannot block it | `handleInternalKeybinds` contains zero references to submap state |
+
+Once you have a console:
+
+```bash
+pkill -x Hyprland     # then Ctrl+Alt+F7 to return to the login screen
+```
+
+Install the session entries (and `swaybg`) with the one script that only
+touches root-owned files — no `apt upgrade`, no waiting:
+
+```bash
+cd Kali-Hyprland/vmware && ./update-system.sh
+```
+
+It also deletes `hyprland-uwsm.desktop`. `uwsm` is not packaged in Kali, so
+that entry can never start; picking it drops you back at the greeter, which
+looks exactly like a crash. The Hyprland package puts it back on upgrade, so
+re-run the script after one.
+
+### 2. "Hyprland (safe test)" — use this the first time
+
+A login-screen entry that arms a **120-second dead-man's switch**
+(`HYPR_SAFETY=120`). Press **`Ctrl + Alt + O`** to keep the session. If you
+do not — because the screen is black, or the keyboard never bound, or a
+keybind failed to register — it ends the session itself and hands you back to
+the display manager.
+
+Confirming is a *keybind* rather than a click on purpose: pressing it proves
+the two things that have actually failed on this machine both work (libinput
+bound a keyboard, and binds registered), and seeing its notification proves
+rendering works. If any of those is broken you cannot confirm, which is
+exactly when you want the auto-exit.
+
+### 3. `Ctrl + Alt + Backspace` — clean exit on demand
+
+A normal rescue bind, `submap_universal`, so it works from inside resize mode
+too. Needs working keybinds, so it is the weakest of the three — but it is
+the tidiest when things *are* working.
+
+> **Recovering a stuck session from the host is never necessary.** If input is
+> dead, `~/hyprland-diag.txt` says so in plain words within ~12 seconds, and
+> `~/hyprland-last.log` survives a power-off. See
+> [VMWARE-NOTES.md](VMWARE-NOTES.md).
 
 ##  Quick Install
 
@@ -79,8 +205,69 @@ chmod +x install.sh
 
 The installer will ask you which setup you want:
 1. **Hyprland only** - Modern Wayland setup
-2. **i3-gaps only** - Classic X11 setup
+2. **i3** - Classic X11 setup
 3. **Both** - Install both, choose at login
+
+### Unattended installation
+
+Every prompt has a flag, so the whole desktop can go on in one command with
+no questions asked:
+
+```bash
+./install.sh --hyprland          # Hyprland only
+./install.sh --i3                # i3 only
+./install.sh --both              # both, pick at the login screen
+./install.sh --all               # both + Oh My Zsh + the VMware session entries
+```
+
+| Flag | Effect |
+|---|---|
+| `--hyprland` / `--i3` / `--both` | choose the session type without being asked |
+| `--all` | `--both` plus Oh My Zsh plus `--vmware` |
+| `-y`, `--yes` | answer yes to every prompt |
+| `--no-zsh` | never install Oh My Zsh |
+| `--vmware` | also run `vmware/update-system.sh` (session launcher + login entries) |
+| `--skip-upgrade` | skip `apt upgrade`, still does `apt update` |
+| `-h`, `--help` | usage |
+| `NERD_VER=v3.4.0 ./install.sh` | pull a different Nerd Fonts release (default `v2.1.0`) |
+
+The installer is safe to run more than once: it moves any existing
+`~/.config/{hypr,waybar,wofi,dunst,i3,compton,rofi,alacritty}` aside as
+`<name>.backup.<timestamp>` before writing the new one, and a package that
+does not exist on your Kali release is reported and skipped rather than
+taking the rest of the install down with it.
+
+### What it installs
+
+Everything kali-clean installed, plus the Wayland replacements for the parts
+of it that are X11-only:
+
+| kali-clean (X11) | Kali-Hyprland (Wayland) | For |
+|---|---|---|
+| `feh` | `swaybg` | wallpaper |
+| `rofi` | `wofi` | app launcher |
+| `i3blocks` + `i3bar` | `waybar` | status bar |
+| `compton` | built into Hyprland | blur, rounding, shadows |
+| `flameshot` | `grim` + `slurp` | screenshots |
+| `lxappearance` | `nwg-look` | GTK theming |
+| `arandr` | `wdisplays`, `wlr-randr` | monitor layout |
+| `alacritty` | `kitty` | terminal |
+| `unclutter` | `cursor_inactive_timeout` | hiding the pointer |
+
+Shared by both: `flameshot`, `feh`, `arc-theme`, `papirus-icon-theme`,
+`imagemagick`, `thunar`, `kitty`, `pavucontrol`, `brightnessctl`,
+`playerctl`, `pywal`, and the Hack / RobotoMono / Iosevka Nerd Fonts.
+
+> **On fonts.** The Debian package `fonts-hack` is *not* Hack Nerd Font. It
+> has the letterforms but none of the patched glyphs, so every icon in the
+> bar renders as an empty box. The installer fetches the real Nerd Font
+> build from the nerd-fonts releases and then tells you whether
+> `Hack Nerd Font` is actually available.
+
+> **On i3 gaps.** There is no `i3-gaps` source build any more. Gaps have been
+> part of upstream i3 since 4.22 and Kali ships 4.25, so `gaps inner 2` in
+> the config just works — which also removes the ~25 `-dev` packages and the
+> meson/ninja compile that kali-clean needed.
 
 ##  What's Included
 
@@ -90,24 +277,39 @@ The installer will ask you which setup you want:
 
 | Hyprland | Reads | In this repo |
 |---|---|---|
-| **0.56+** (Kali's current package) | `~/.config/hypr/hyprland.**lua**` | `vmware/hyprland.lua` |
-| pre-0.56 | `~/.config/hypr/hyprland.conf` | `.config/hypr/hyprland.conf` |
+| **0.51+** (Kali ships 0.56) | `~/.config/hypr/hyprland.`**`lua`** | `.config/hypr/hyprland.lua` |
+| pre-0.51 | `~/.config/hypr/hyprland.conf` | `legacy/hyprland.conf` |
 
-They are not interchangeable, and the wrong one fails **silently** — no error,
-no warning, you just get autogenerated defaults. Check with `hyprctl version`.
+0.56 still loads a `hyprland.conf`, but it prints *"You are using the .conf
+config format, support for which will be removed in Hyprland 0.57"* — so the
+`.lua` is the one that is maintained here, and the `.conf` is kept only so the
+repo still works on an older Hyprland. **Never put both in `~/.config/hypr`.**
+Check your version with `hyprctl version`.
 
 ```
 .config/
 ├── hypr/
-│   └── hyprland.conf      # Pre-0.56 only. Ignored by 0.56.
+│   ├── hyprland.lua       # The config. Hyprland 0.51+
+│   └── scripts/
+│       ├── wallpaper.sh   # swaybg; the Wayland stand-in for ~/.fehbg
+│       ├── screenshot.sh  # grim + slurp; stands in for flameshot gui
+│       ├── exit.sh        # wofi; stands in for i3-nagbar
+│       ├── safety-net.sh  # HYPR_SAFETY dead-man's switch (CTRL+ALT+O)
+│       └── polkit-agent.sh # starts whichever agent this box shipped
 ├── waybar/
-│   ├── config             # Waybar configuration
-│   └── style.css          # Waybar styling
+│   ├── config             # i3blocks, module for module
+│   ├── style.css          # the i3bar `colors {}` block, in GTK CSS
+│   └── scripts/vpn.sh     # i3blocks [iface] instance=tun0
 ├── wofi/
-│   ├── config             # Wofi launcher config
+│   ├── config             # geometry from kali-clean's rofi config
 │   └── style.css          # Wofi styling
+├── dunst/
+│   └── dunstrc            # notifications, same palette
 └── kitty/
-    └── kitty.conf         # Terminal configuration
+    └── kitty.conf         # 0.80 alpha + background_blur -- see below
+
+legacy/
+└── hyprland.conf          # the same setup in the pre-0.51 .conf format
 ```
 
 ### i3-gaps Configuration
@@ -128,120 +330,189 @@ no warning, you just get autogenerated defaults. Check with `hyprctl version`.
 
 ## ⌨️ Keybindings
 
-Both setups use `Super` (Windows key) as the main modifier.
+`Super` (Windows key) is the modifier in both setups. **The Hyprland map is
+kali-clean's i3 map**, key for key, so muscle memory carries straight over.
 
-### Essential (Same for Both)
-- `Super + Enter` - Open terminal
-- `Super + D` - Application launcher
-- `Super + Shift + Q` - Close window
-- `Super + Shift + E` - Exit WM/compositor
-- `Super + F` - Fullscreen
-- `Super + V` - Toggle floating (Hyprland) / Toggle tiling (i3)
+Note the focus row: kali-clean uses the vim row *shifted one key right* —
+`j`=left, `k`=down, `l`=up, `;`=right. On a Spanish layout `ñ` sits where a US
+keyboard puts `;`, so both are bound.
 
-### Window Navigation
-- `Super + J/K/I/O` - Move focus (left/down/up/right)
-- `Super + Shift + J/K/I/O` - Move window
-- `Super + Arrow Keys` - Alternative navigation
+### Rescue binds — deliberately not on `SUPER`
 
-### Workspaces
-- `Super + 1-9` - Switch to workspace
-- `Super + Shift + 1-9` - Move window to workspace
-
-### Hyprland 0.56 / VM profile (`vmware/hyprland.lua`)
-
-These differ from the list above — the Lua config is its own keymap, closer to
-upstream Hyprland than to i3.
-
-**Rescue binds — deliberately not on `SUPER`,** because a VMware host can grab
-the Super key. These always work:
+A VMware host can grab the Super key, and a bind that fails to register leaves
+you with no way out but powering off the guest. These always work:
 
 | Key | Action |
 |---|---|
 | `Ctrl + Alt + T` | Terminal |
 | `Alt + Return` | Terminal |
 | `Ctrl + Alt + Backspace` | Exit Hyprland cleanly |
+| `Ctrl + Alt + O` | Confirm a `HYPR_SAFETY` test session is usable |
 
-**Normal binds:**
+They stay live inside the resize submap too (`submap_universal`).
 
-| Key | Action |
-|---|---|
-| `Super + Q` | Terminal (kitty) |
-| `Super + R` | App launcher (wofi) |
-| `Super + E` | File manager (thunar) |
-| `Super + C` | Close window |
-| `Super + F` | Fullscreen |
-| `Super + V` | Toggle floating |
-| `Super + G` | Center window |
-| `Super + P` | Pseudo-tile |
-| `Super + J` | Toggle split |
-| `Super + Shift + P` | Pin window |
-| `Super + Shift + E` | Exit |
-| `Super + ←↑→↓` | Move focus |
-| `Super + H / K / L` | Focus left / up / right |
-| `Super + 1..0` | Switch workspace |
-| `Super + Shift + 1..0` | Move window to workspace |
-| `Super + S` | Toggle special workspace ("magic") |
-| `Super + Shift + S` | Move window to special workspace |
-| `Super + Scroll` | Cycle workspaces |
-| `Super + Left-drag` | Move window |
-| `Super + Right-drag` | Resize window |
-| `Print` | Screenshot whole screen → clipboard |
-| `Super + Shift + A` | Screenshot region (slurp) → clipboard |
+`Ctrl + Alt + F3` is **not** in this table because it is not a keybind at all
+— Hyprland handles VT switching internally, below the keybind layer. That is
+what makes it the escape of last resort. See
+[Testing it without risking a black screen](#-testing-it-without-risking-a-black-screen).
 
-Keyboard layout is `es`. Change `kb_layout` in `vmware/hyprland.lua` if you
-deploy elsewhere.
+### Hyprland — mirroring kali-clean's i3
 
-### Hyprland pre-0.56 (`hyprland.conf`)
-- `Super + R` - Resize mode
-- `Super + Shift + P` - Screenshot (grim + slurp)
-- `Super + Shift + R` - Reload config
+| Key | Action | i3 line it came from |
+|---|---|---|
+| `Super + Return` | Terminal (kitty) | `exec alacritty` |
+| `Super + Shift + Return` | File manager (thunar) | *new* |
+| `Super + Shift + Q` | Close window | `kill` |
+| `Super + D` | App launcher (wofi) | `exec "rofi -show run"` |
+| `Super + J / K / L / ;` | Focus left / down / up / right | `focus left` … |
+| `Super + ←↓↑→` | Focus, arrow keys | `focus left` … |
+| `Super + Shift + J/K/L/;` | Move window | `move left` … |
+| `Super + H` | Split horizontal (next window opens right) | `split h` |
+| `Super + V` | Split vertical (next window opens below) | `split v` |
+| `Super + E` | Toggle split | `layout toggle split` |
+| `Super + S` / `Super + W` | Group — Hyprland's one primitive for i3's stacking *and* tabbed | `layout stacking` / `layout tabbed` |
+| `Super + Tab` / `Super + Shift + Tab` | Next / previous window in the group | *new* |
+| `Super + F` | Fullscreen | `fullscreen toggle` |
+| `Super + Shift + Space` | Toggle floating | `floating toggle` |
+| `Super + Space` | Cycle floating windows | `focus mode_toggle` |
+| `Super + P` | Pseudo-tile | *dwindle extra* |
+| `Super + C` | Center window | *dwindle extra* |
+| `Super + 1..0` | Switch workspace | `workspace 1` … |
+| `Super + Shift + 1..0` | Move window to workspace | `move container to workspace 1` … |
+| `Super + Scroll` | Cycle workspaces | *new* |
+| `Super + R` | **Resize mode** — `Escape`/`Return` to leave | `mode "resize"` |
+| `Super + Ctrl + Shift + ←↓↑→` | Resize without entering the mode | same binds in i3 |
+| `Super + Shift + C` / `Super + Shift + R` | Reload config (Hyprland re-reads in place; there is no separate restart) | `reload` / `restart` |
+| `Super + Shift + E` | Exit, with a wofi confirmation | `i3-nagbar … i3-msg exit` |
+| `Super + Shift + P` | Screenshot region → clipboard **and** `~/Pictures` | `exec flameshot gui` |
+| `Print` | Whole screen → clipboard | *new* |
+| `Super + Left-drag` | Move window | `floating_modifier $mod` |
+| `Super + Right-drag` | Resize window | `floating_modifier $mod` |
+| `XF86Audio*` | Volume / mute via `wpctl` | *new* |
 
-### i3 Specific
-- `Super + H` - Split horizontal
-- `Super + V` - Split vertical
-- `Super + S` - Stacking layout
-- `Super + W` - Tabbed layout
-- `Super + E` - Toggle split layout
+Inside resize mode the same `j/k/l/;` and arrow keys resize by 20px, exactly
+as i3's `resize shrink width 10 px or 10 ppt` block did.
+
+Keyboard layout is `es`. Change `kb_layout` in `.config/hypr/hyprland.lua` —
+it is the only machine-specific line in the file.
+
+### i3-gaps
+
+Identical to the table above, minus the Hyprland-only extras (groups replace
+stacking/tabbed, `Super + P` is pseudo-tile rather than screenshot).
 
 ##  Customization
 
 ### Hyprland
 
-#### Change Colors
-Edit `~/.config/hypr/hyprland.conf` (on Hyprland 0.56 edit `hyprland.lua` instead):
-```conf
-col.active_border = rgba(43a047ee)  # Active border (green)
-col.inactive_border = rgba(333333aa) # Inactive border
+All of this lives in `~/.config/hypr/hyprland.lua`.
+
+#### Change colours
+The palette is five named locals at the top of the file, so one edit changes
+the borders, the groupbar and anything else that uses them:
+
+```lua
+local accent   = "rgba(82c8ffff)"   -- i3: client.focused
+local inactive = "rgba(333333ff)"   -- i3: client.unfocused
 ```
 
-#### Adjust Blur
-```conf
-blur {
-    size = 6        # Blur radius (1-20)
-    passes = 3      # Quality (1-4, higher = slower)
-}
+Waybar, wofi and dunst carry the same hexes in their own stylesheets
+(`~/.config/waybar/style.css`, `~/.config/wofi/style.css`,
+`~/.config/dunst/dunstrc`) — change them there to match.
+
+#### Adjust blur
+```lua
+blur = {
+    enabled = true,
+    size    = 6,   -- blur radius (1-20)
+    passes  = 2,   -- quality (1-4, higher = slower)
+},
 ```
 
-#### Modify Animations
-```conf
-animation = windows, 1, 5, overshot, slide
-#                    ^  ^  ^         ^
-#                    |  |  |         └─ Animation type
-#                    |  |  └─────────── Bezier curve
-#                    |  └────────────── Speed (1-10)
-#                    └───────────────── Enabled (1/0)
+Kitty's translucency is what blur has to work with, and it is set in
+`~/.config/kitty/kitty.conf` (`background_opacity 0.80`) — **not** with a
+window rule. Setting both multiplies them and the terminal goes murky.
+
+**Kitty asks for the blur itself, too.** `background_blur 1` is set in
+`kitty.conf`. That option is often described as macOS-only, and that is out
+of date: kitty takes effect on "macOS and Wayland, when the compositor
+supports the background blur extension", and Hyprland 0.56 implements it —
+
+```console
+$ strings /usr/bin/Hyprland | grep ext_background
+ext_background_effect_manager_v1
+ext_background_effect_surface_v1
+```
+
+Two things worth knowing about that line:
+
+- the integer is a blur *radius* only on macOS. On Wayland it is a flag, so
+  `1` is the honest value and a bigger number buys nothing — the radius comes
+  from `decoration:blur:size`.
+- it does **not** stack into a double blur. It is a request to blur the
+  region behind the surface, which the compositor is already doing.
+
+Under a compositor without the extension the line is simply ignored, never an
+error.
+
+#### Border thickness
+One global covers every window, Wayland-native and XWayland alike:
+
+```lua
+general = { border_size = 3 },   -- kali-clean's i3 used 2
+```
+
+Three other files carry the same weight so nothing looks out of place —
+`~/.config/wofi/style.css` (`border: 3px`), `~/.config/dunst/dunstrc`
+(`frame_width = 3`) and, on the X11 side, `~/.config/i3/config`
+(`border pixel 3`).
+
+#### Modify animations
+```lua
+hl.curve("overshot", { type = "bezier", points = { {0.13, 0.99}, {0.29, 1.10} } })
+hl.animation({ leaf = "windowsIn", enabled = true, speed = 5, bezier = "overshot", style = "popin 80%" })
+--                    ^                            ^                  ^                   ^
+--                    |                            |                  |                   └─ style
+--                    |                            |                  └───────────────────── curve
+--                    |                            └──────────────────────────────────────── deciseconds
+--                    └───────────────────────────────────────────────────────────────────── what to animate
+```
+
+`speed` is in *deciseconds* — `speed = 5` is 500ms.
+
+#### Change profile
+Start the session with `HYPR_EFFECTS=soft` (default), `full` or `lite` — in a
+VM, pick the **"Hyprland (lite)"** login entry for the last one. Colours,
+gaps, borders, keybindings and rounded corners are the same in all three.
+
+The profiles are a table at the top of `hyprland.lua`, so retuning one is a
+single edit:
+
+```lua
+soft = {
+    blur = true,  blur_size = 4, blur_passes = 1,
+    blur_xray = true,  blur_popups = false,
+    ...
+},
 ```
 
 ### i3-gaps
 
 #### Set Wallpaper & Colors
 ```bash
-# Set wallpaper and generate color scheme
-pywal -i ~/.wallpaper/yourimage.jpg
+# Generate a colour scheme from the wallpaper.
+# NOTE the command is `wal`, not `pywal` -- pywal is the package name.
+wal -i ~/.wallpaper/John_Martin_Le_Pandemonium_Louvre.jpg
 
-# Or use feh directly
-feh --bg-scale ~/path/to/wallpaper.jpg
+# Or set the wallpaper directly with feh
+feh --bg-fill ~/.wallpaper/John_Martin_Le_Pandemonium_Louvre.jpg
 ```
+
+`~/.fehbg` is what re-applies it on every login; edit that one line to
+change the wallpaper permanently. Under Hyprland the equivalent is
+`~/.config/hypr/scripts/wallpaper.sh`, which takes the first image it finds
+in `~/.wallpaper/` and can be overridden per-session with
+`WALLPAPER=/path/to/image.jpg`.
 
 #### Change Theme
 ```bash
@@ -257,13 +528,21 @@ lxappearance
 **For Hyprland:**
 ```bash
 sudo apt install -y hyprland waybar wofi dunst grim slurp \
-    wl-clipboard swaylock swayidle xdg-desktop-portal-hyprland \
-    xwayland kitty thunar mate-polkit wireplumber
+    wl-clipboard swaybg swaylock swayidle xdg-desktop-portal-hyprland \
+    xwayland kitty thunar mate-polkit wireplumber \
+    network-manager-gnome fonts-hack papirus-icon-theme
 ```
 
-`mate-polkit` provides the authentication agent the VM config autostarts —
-without it, anything asking for authentication fails with no prompt at all.
-`wireplumber` provides the `wpctl` the volume keys call.
+Three of these are easy to miss and each breaks something visible:
+
+| Package | Without it |
+|---|---|
+| `swaybg` | no wallpaper at all — feh cannot paint a Wayland root window |
+| `mate-polkit` | anything asking for authentication fails with no prompt |
+| `wireplumber` | the volume keys do nothing (`wpctl` is what they call) |
+
+`fonts-hack` backs the `Hack Nerd Font` the bar, launcher, groupbar and
+terminal all ask for.
 
 **For i3-gaps:**
 ```bash
@@ -276,12 +555,20 @@ pip3 install pywal
 
 ```bash
 # Copy desired configs
-cp -r .config/hypr ~/.config/     # Hyprland
+cp -r .config/hypr   ~/.config/   # Hyprland (hyprland.lua + scripts/)
 cp -r .config/waybar ~/.config/   # Waybar
-cp -r .config/i3 ~/.config/       # i3
-cp -r .config/kitty ~/.config/    # Kitty
-# ... etc
+cp -r .config/wofi   ~/.config/   # Wofi
+cp -r .config/dunst  ~/.config/   # Dunst
+cp -r .config/kitty  ~/.config/   # Kitty
+cp -r .config/i3     ~/.config/   # i3 (Hyprland reuses clipboard_fix.sh)
+cp -r .wallpaper     ~/           # wallpaper.sh looks in ~/.wallpaper
+
+chmod +x ~/.config/hypr/scripts/*.sh ~/.config/waybar/scripts/*.sh \
+         ~/.config/i3/clipboard_fix.sh
 ```
+
+On a Hyprland older than 0.51, delete `~/.config/hypr/hyprland.lua` and use
+`legacy/hyprland.conf` instead.
 
 ##  Troubleshooting
 
@@ -317,12 +604,35 @@ You most likely selected **Hyprland (uwsm-managed)**. `uwsm` isn't packaged in
 Kali, so that entry can never start. Pick plain **Hyprland**;
 `vmware/install-vmware.sh` deletes the dead entry outright.
 
-### Blur is laggy
-Reduce blur quality in `~/.config/hypr/hyprland.conf`:
-```conf
-passes = 2  # or even 1
-size = 4    # reduce from 6
+### Everything is sluggish
+You are on software rendering — expected in this guest, and what the default
+`soft` profile is built for. Confirm it:
+
+```bash
+grep '^renderer:' ~/hyprland-last.log        # what the session actually used
+grep '^effects:'  ~/hyprland-last.log        # which profile was active
+journalctl -k -b | grep -i 'shader model'    # vmwgfx's own verdict
 ```
+
+`Available shader model: Legacy` means no GLES 3.x and therefore llvmpipe.
+
+**Do not try to fix this by enabling "Accelerate 3D graphics" in the VM
+settings.** On many hosts that option prevents the VM from booting at all,
+and nothing here needs it.
+
+What to do instead, in order:
+
+1. Log out, pick the **"Hyprland (lite)"** session. If that is smooth, the
+   cost is in blur/animations and you can tune `soft` between the two.
+2. Start with `HYPR_OVERLAY=1` and watch the frame timings while you change
+   one value at a time in `~/.config/hypr/hyprland.lua` (`Super + Shift + C`
+   reloads).
+3. The cheapest wins, in order of effect: drop `blur_passes` to `1` (already
+   the case in `soft`), then `blur_size` to `3`, then set `blur = false` and
+   keep the animations, which are usually not the problem.
+4. Lower the guest resolution. Software rendering cost is linear in pixels,
+   and a VMware guest auto-fits to whatever the window is — a smaller window
+   is genuinely a faster desktop.
 
 ### Waybar not showing
 ```bash
@@ -337,11 +647,21 @@ The clipboard fix script should run automatically. If not:
 ```
 
 ### Pywal not working
+Current Kali marks its Python as externally managed (PEP 668), so the old
+`pip3 install pywal` now fails with *"error: externally-managed-environment"*.
+Use pipx, which gives it its own venv and still puts `wal` on `PATH`:
+
 ```bash
-pip3 install --user pywal
-# Make sure ~/.local/bin is in PATH
+sudo apt install pipx
+pipx install pywal
+pipx ensurepath          # adds ~/.local/bin to PATH
+
+# last resort, if you really want it in the user site-packages:
+pip3 install --user --break-system-packages pywal
 export PATH="$HOME/.local/bin:$PATH"
 ```
+
+The command is `wal`, not `pywal`.
 
 ##  Comparison: Hyprland vs i3-gaps
 
@@ -361,13 +681,13 @@ export PATH="$HOME/.local/bin:$PATH"
 
 **Recommendation:**
 - **Physical machine → Hyprland** (better performance, modern features)
-- **Virtual machine → either**; for Hyprland run `vmware/install-vmware.sh` first
+- **Virtual machine → either**; for Hyprland run `vmware/install-vmware.sh` first, and expect the `soft` profile rather than `full`
 
 ##  Tips
 
-1. **First time with Hyprland?** The keybindings are similar to i3, so muscle memory transfers!
-2. **Performance tip:** Hyprland uses GPU acceleration, much smoother than i3+picom — but *only* with real GPU access. In a VM with host 3D off you fall back to llvmpipe, which is why the VM profile disables blur and animations. Turning on 3D acceleration in the VM's settings is the single biggest win available.
-3. **Missing wallpaper?** Copy your images to `~/.wallpaper/` directory
+1. **First time with Hyprland?** The keybindings are kali-clean's i3 map, key for key, so muscle memory transfers.
+2. **Performance:** Hyprland is normally GPU-accelerated. In a VM without host 3D it renders on the CPU through llvmpipe instead — which is why the default `soft` profile exists, and why it cuts full-screen animations rather than the effects you actually look at. Do not chase this by enabling 3D acceleration in the VM settings; on many hosts the VM then will not boot.
+3. **Missing wallpaper?** Copy your images to `~/.wallpaper/` — and make sure `swaybg` is installed, or nothing can paint a Wayland background at all.
 4. **Customize!** All configs are in `~/.config/` - edit to your liking
 5. **Switch between setups:** Both can be installed - just select at login screen
 
@@ -376,19 +696,24 @@ export PATH="$HOME/.local/bin:$PATH"
 ```
 Kali-Hyprland/
 ├── .config/
-│   ├── hypr/           # Hyprland config
-│   ├── waybar/         # Waybar config
+│   ├── hypr/           # hyprland.lua + scripts/
+│   ├── waybar/         # config, style.css, scripts/vpn.sh
 │   ├── wofi/           # Wofi config
+│   ├── dunst/          # Notification theme
 │   ├── i3/             # i3 config
 │   ├── compton/        # Compton config
 │   ├── rofi/           # Rofi config
 │   ├── alacritty/      # Alacritty config
 │   └── kitty/          # Kitty config
-├── vmware/             # VMware guest deploy (Hyprland 0.56)
-│   ├── install-vmware.sh       # Run this in a VM
+├── legacy/
+│   └── hyprland.conf   # Same setup, pre-0.51 .conf format
+├── vmware/             # VMware guest deploy
+│   ├── install-vmware.sh       # Full deploy: packages + configs + sessions
+│   ├── update-system.sh        # Just the root-owned half (fast, no apt upgrade)
 │   ├── start-hyprland-vmware   # Session launcher (fixes the input race)
-│   ├── hyprland.lua            # Hyprland 0.56 config (Lua, not .conf)
 │   ├── hyprland.desktop        # LightDM session entry
+│   ├── hyprland-test.desktop   # 120s dead-man's switch -- use this first
+│   ├── hyprland-lite.desktop   # Same config, HYPR_EFFECTS=lite
 │   ├── hyprland-diag.desktop   # Self-exiting diagnostic session
 │   └── 02-default-session.conf # Make Hyprland the LightDM default
 ├── .wallpaper/         # Wallpaper directory

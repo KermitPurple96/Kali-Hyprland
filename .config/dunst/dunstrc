@@ -1,0 +1,98 @@
+# Dunst, wearing the kali-clean palette.
+#
+# There is no notification daemon in the kali-clean i3 setup -- i3bar and
+# i3blocks were the whole status surface -- so this is new, but it is the
+# one piece of chrome Hyprland puts on screen that had nowhere to inherit
+# its colours from. Everything here is taken from the same five values as
+# the bar and the launcher:
+#
+#   #1C1D2B ground   #282A3E raised   #E6FFF5 text
+#   #82c8ff accent   #900000 urgent
+#
+# Hyprland blurs behind this surface (layer_rule namespace "notifications"
+# in ~/.config/hypr/hyprland.lua), which is why the backgrounds carry an
+# alpha channel instead of being flat.
+
+[global]
+    monitor = 0
+    follow = mouse
+
+    width = (250, 400)
+    height = (0, 300)
+    origin = top-right
+    offset = (12, 38)          # clears the 26px bar plus a gap
+    scale = 0
+
+    notification_limit = 5
+    progress_bar = true
+    progress_bar_height = 8
+    progress_bar_frame_width = 0
+    progress_bar_min_width = 150
+    progress_bar_max_width = 380
+    progress_bar_corner_radius = 4
+
+    indicate_hidden = yes
+    transparency = 0
+    separator_height = 2
+    padding = 10
+    horizontal_padding = 12
+    text_icon_padding = 8
+
+    # Matches the 2px border and 10px rounding of a Hyprland window.
+    frame_width = 3
+    corner_radius = 10
+    separator_color = frame
+    gap_size = 4
+
+    sort = yes
+    idle_threshold = 120
+
+    font = Hack Nerd Font 10
+    line_height = 0
+    markup = full
+    format = "<b>%s</b>\n%b"
+    alignment = left
+    vertical_alignment = center
+    show_age_threshold = 60
+    ellipsize = middle
+    ignore_newline = no
+    stack_duplicates = true
+    hide_duplicate_count = false
+    show_indicators = yes
+
+    enable_recursive_icon_lookup = true
+    icon_theme = Papirus-Dark, Adwaita
+    icon_position = left
+    min_icon_size = 24
+    max_icon_size = 48
+
+    sticky_history = yes
+    history_length = 20
+
+    dmenu = /usr/bin/wofi --dmenu
+    browser = /usr/bin/xdg-open
+    always_run_script = true
+    title = Dunst
+    class = Dunst
+
+    mouse_left_click = close_current
+    mouse_middle_click = do_action, close_current
+    mouse_right_click = close_all
+
+[urgency_low]
+    background = "#1C1D2Bdd"
+    foreground = "#888888"
+    frame_color = "#333333"
+    timeout = 5
+
+[urgency_normal]
+    background = "#1C1D2Bdd"
+    foreground = "#E6FFF5"
+    frame_color = "#82c8ff"
+    timeout = 8
+
+[urgency_critical]
+    background = "#282A3Eee"
+    foreground = "#E6FFF5"
+    frame_color = "#900000"
+    timeout = 0

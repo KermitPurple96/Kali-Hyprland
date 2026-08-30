@@ -23,7 +23,9 @@ pkill -u "$(id -u)" -x hyprpaper 2>/dev/null
 # --- 2. Renderer -------------------------------------------------------
 # vmwgfx reports "Available shader model: Legacy" when host 3D acceleration
 # is off; there is no GLES 3.x then and Hyprland exits immediately. Only in
-# that case force llvmpipe.
+# that case force llvmpipe. This is the normal, expected path here -- host
+# 3D acceleration is not an option on this setup, so the desktop config is
+# tuned for a CPU renderer rather than waiting on a GPU that never arrives.
 SHADER=$(journalctl -k -b 2>/dev/null | grep -o 'shader model: [A-Za-z0-9._]*' | tail -1)
 case "$SHADER" in
     *[Ll]egacy*|"")
@@ -110,7 +112,9 @@ watchdog() {
         sleep "$HYPR_DIAG_EXIT"
         echo "=== diagnostic timeout, exiting $(date -Is) ===" >> "$DIAG"
         sync
-        hyprctl dispatch exit >/dev/null 2>&1
+        # 0.56 takes a Lua expression; keep the pre-0.51 form as fallback.
+        hyprctl dispatch 'hl.dsp.exit()' >/dev/null 2>&1 || \
+            hyprctl dispatch exit >/dev/null 2>&1
     fi
 }
 
@@ -151,6 +155,21 @@ done
     echo "seat:      XDG_SESSION_ID=${XDG_SESSION_ID:-unset} XDG_VTNR=${XDG_VTNR:-unset}"
     echo "display:   DISPLAY=${DISPLAY:-unset} WAYLAND_DISPLAY=${WAYLAND_DISPLAY:-unset}"
     echo "diag mode: ${HYPR_DIAG_EXIT:-off}"
+    echo "effects:   HYPR_EFFECTS=${HYPR_EFFECTS:-soft (default)}"
+    # Blur and window animations are on unless the session entry asked for
+    # lite; shadows and the workspace slide belong to `full` alone. Say so
+    # here when we are about to pay for them in CPU time: "the desktop is
+    # slow" is otherwise very hard to trace back to this.
+    case "$RENDERER" in
+        llvmpipe*)
+            cat <<'NOTE'
+note:      Software rendering, as expected in this guest. The config's
+           default "soft" profile is tuned for it. If the desktop drags,
+           log out and pick the "Hyprland (lite)" session -- do NOT enable
+           3D acceleration in the VM settings to chase it.
+NOTE
+            ;;
+    esac
     echo "session:   Active=${ACTIVE:-unknown} after waiting for logind"
 } > "$LOG"
 : > "$DIAG"

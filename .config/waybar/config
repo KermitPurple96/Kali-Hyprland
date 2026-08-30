@@ -1,87 +1,102 @@
+// Waybar standing in for kali-clean's i3bar + i3blocks.
+//
+// Geometry comes from the i3 `bar {}` block (top, height 26, RobotoMono 7.5)
+// and the modules are a one-for-one port of ~/.config/i3/i3blocks.conf,
+// down to the same Nerd Font glyphs.
 {
     "layer": "top",
     "position": "top",
-    "height": 30,
-    "spacing": 4,
+    "height": 26,
+    "spacing": 0,
 
-    "modules-left": ["hyprland/workspaces", "hyprland/window"],
-    "modules-center": [],
-    "modules-right": ["pulseaudio", "network", "cpu", "memory", "battery", "clock", "tray"],
+    "modules-left": ["hyprland/workspaces", "hyprland/submap"],
+    "modules-center": ["hyprland/window"],
+    "modules-right": [
+        "cpu",              // i3blocks [cpu_usage]
+        "memory",           // i3blocks [memory]
+        "disk",             // i3blocks [disk]
+        "network",          // i3blocks [bandwidth]
+        "custom/vpn",       // i3blocks [iface] instance=tun0
+        "tray",
+        "clock"             // i3blocks [time]
+    ],
 
     "hyprland/workspaces": {
         "disable-scroll": false,
         "all-outputs": true,
-        "format": "{name}",
-        "format-icons": {
-            "1": "1",
-            "2": "2",
-            "3": "3",
-            "4": "4",
-            "5": "5",
-            "6": "6",
-            "7": "7",
-            "8": "8",
-            "9": "9",
-            "10": "10"
-        }
+        "format": "{name}"
+    },
+
+    // i3bar's mode indicator — lights up in the SUPER+R resize submap
+    "hyprland/submap": {
+        "format": "  {}  ",
+        "tooltip": false
     },
 
     "hyprland/window": {
         "format": "{}",
-        "max-length": 50
+        "max-length": 60,
+        "separate-outputs": true
     },
 
-    "tray": {
-        "spacing": 10
-    },
-
-    "clock": {
-        "tooltip-format": "<big>{:%Y %B}</big>\n<tt><small>{calendar}</small></tt>",
-        "format": "{:%H:%M %d/%m/%Y}"
-    },
-
+    // [cpu_usage] — label=" CPU", interval=5
     "cpu": {
-        "format": " {usage}%",
+        "interval": 5,
+        "format": " CPU {usage}%",
         "tooltip": false
     },
 
+    // [memory] — label=" RAM", interval=10
     "memory": {
-        "format": " {}%"
+        "interval": 10,
+        "format": " RAM {percentage}%",
+        "tooltip-format": "{used:0.1f}G used of {total:0.1f}G"
     },
 
-    "battery": {
-        "states": {
-            "warning": 30,
-            "critical": 15
-        },
-        "format": "{icon} {capacity}%",
-        "format-charging": " {capacity}%",
-        "format-plugged": " {capacity}%",
-        "format-icons": ["", "", "", "", ""]
+    // [disk] — label=" Disk", interval=240
+    "disk": {
+        "interval": 240,
+        "path": "/",
+        "format": " Disk {free}",
+        "tooltip-format": "{used} used of {total} on {path}"
     },
 
+    // [bandwidth] — label="", interval=5
     "network": {
-        "format-wifi": " {essid}",
-        "format-ethernet": " {ipaddr}",
-        "format-linked": " {ifname}",
-        "format-disconnected": "⚠ Disconnected",
-        "tooltip-format": "{ifname}: {ipaddr}/{cidr}"
+        "interval": 5,
+        "format": " {bandwidthDownBits} {bandwidthUpBits}",
+        "format-disconnected": " down",
+        "tooltip-format": "{ifname}  {ipaddr}/{cidr}"
     },
 
-    "pulseaudio": {
-        "format": "{icon} {volume}%",
-        "format-bluetooth": "{icon} {volume}%",
-        "format-bluetooth-muted": " {icon}",
-        "format-muted": "",
-        "format-icons": {
-            "headphone": "",
-            "hands-free": "",
-            "headset": "",
-            "phone": "",
-            "portable": "",
-            "car": "",
-            "default": ["", "", ""]
-        },
-        "on-click": "pavucontrol"
+    // [iface] instance=tun0 — label="", color=#3BB92D
+    "custom/vpn": {
+        "interval": 10,
+        "exec": "~/.config/waybar/scripts/vpn.sh",
+        "return-type": "json",
+        "tooltip": true
+    },
+
+    "tray": {
+        "icon-size": 16,
+        "spacing": 8
+    },
+
+    // [time] — command=date '+%A, %d %B %Y %H:%M:%S ', interval=1
+    "clock": {
+        "interval": 1,
+        "format": " {:%A, %d %B %Y %H:%M:%S}",
+        "tooltip-format": "<big>{:%Y %B}</big>\n<tt><small>{calendar}</small></tt>"
     }
+
+    // kali-clean's i3blocks keeps [battery] and [temperature] commented out,
+    // so they are left out here too. To bring the battery back, add "battery"
+    // to modules-right and uncomment:
+    //
+    // "battery": {
+    //     "states": { "warning": 30, "critical": 15 },
+    //     "format": "{icon} {capacity}%",
+    //     "format-charging": " {capacity}%",
+    //     "format-icons": ["", "", "", "", ""]
+    // }
 }

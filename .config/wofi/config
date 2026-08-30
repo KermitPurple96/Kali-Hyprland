@@ -1,15 +1,29 @@
-width=600
-height=400
-location=center
+# Wofi standing in for kali-clean's `rofi -show run`.
+#
+# The geometry mirrors ~/.config/rofi/config: a 3-column, 15-line grid with
+# no scrollbar and case-insensitive matching. The colours live in style.css.
+
 show=drun
-prompt=Search...
-filter_rate=100
-allow_markup=true
-no_actions=true
-halign=fill
+prompt=Search
+width=800
+height=440
+location=center
 orientation=vertical
+halign=fill
 content_halign=fill
+
+# rofi.columns: 3 / rofi.lines: 15
+columns=3
+lines=15
+
+# rofi.hide-scrollbar: true / rofi.fuzzy: true
+hide_scroll=true
 insensitive=true
-allow_images=true
-image_size=40
+matching=fuzzy
+
+no_actions=true
+allow_markup=true
+allow_images=false
+term=kitty
 gtk_dark=true
+key_expand=Tab

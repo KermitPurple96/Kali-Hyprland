@@ -21,8 +21,9 @@ sudo apt update
 sudo apt install -y \
     hyprland xdg-desktop-portal-hyprland xwayland \
     waybar wofi dunst kitty thunar \
-    grim slurp wl-clipboard swaylock swayidle \
-    mate-polkit wireplumber
+    grim slurp wl-clipboard swaybg swaylock swayidle \
+    mate-polkit wireplumber network-manager-gnome \
+    fonts-hack papirus-icon-theme
 
 echo "==> 2/5 session launcher -> /usr/local/bin/start-hyprland-vmware"
 # The important one. Waits for logind Active=yes so libinput can actually open
@@ -33,17 +34,48 @@ sudo install -m 755 "$HERE/start-hyprland-vmware" /usr/local/bin/start-hyprland-
 echo "==> 3/5 session entries -> /usr/share/wayland-sessions/"
 sudo install -m 644 "$HERE/hyprland.desktop"      /usr/share/wayland-sessions/hyprland.desktop
 sudo install -m 644 "$HERE/hyprland-diag.desktop" /usr/share/wayland-sessions/hyprland-diag.desktop
+# "Hyprland (lite)": identical config with HYPR_EFFECTS=lite. The normal
+# session is already tuned for software rendering; this is the fallback if
+# even that drags, reachable from the login screen instead of from a config
+# file you may not be able to open.
+sudo install -m 644 "$HERE/hyprland-lite.desktop" /usr/share/wayland-sessions/hyprland-lite.desktop
+# "Hyprland (safe test)": the entry to use the FIRST time. Arms a 120s
+# dead-man's switch, so a session you cannot see or type in ends by itself
+# instead of costing you a power cycle.
+sudo install -m 644 "$HERE/hyprland-test.desktop" /usr/share/wayland-sessions/hyprland-test.desktop
 # uwsm is not packaged in Kali, so the entry Hyprland ships is a dead option
 # that drops you straight back to the greeter. Remove it.
 sudo rm -f /usr/share/wayland-sessions/hyprland-uwsm.desktop
 
-echo "==> 4/5 Hyprland config -> ~/.config/hypr/hyprland.lua"
-# Hyprland 0.56 reads hyprland.LUA. A hyprland.conf is ignored outright.
-mkdir -p ~/.config/hypr
-if [ -f ~/.config/hypr/hyprland.lua ]; then
-    cp ~/.config/hypr/hyprland.lua ~/.config/hypr/hyprland.lua.bak."$(date +%Y%m%d_%H%M%S)"
-fi
-install -m 644 "$HERE/hyprland.lua" ~/.config/hypr/hyprland.lua
+echo "==> 4/5 desktop config -> ~/.config"
+# One config, shared with the bare-metal install: ../.config/hypr/hyprland.lua.
+# There is no separate VM copy any more -- the difference between a machine
+# with a GPU and one without is the HYPR_EFFECTS environment variable, not a
+# different file. See "PERFORMANCE" at the top of that config.
+#
+# Hyprland 0.51+ reads hyprland.LUA. 0.56 still loads a hyprland.conf but
+# warns that support for it goes away in 0.57, so only the .lua is deployed.
+REPO="$(cd "$HERE/.." && pwd)"
+STAMP="$(date +%Y%m%d_%H%M%S)"
+
+mkdir -p ~/.config/hypr/scripts ~/.config/waybar/scripts \
+         ~/.config/wofi ~/.config/dunst ~/.config/kitty ~/.config/i3 ~/.wallpaper
+
+for f in ~/.config/hypr/hyprland.lua ~/.config/kitty/kitty.conf; do
+    [ -f "$f" ] && cp "$f" "$f.bak.$STAMP"
+done
+
+install -m 644 "$REPO/.config/hypr/hyprland.lua"   ~/.config/hypr/hyprland.lua
+install -m 755 "$REPO"/.config/hypr/scripts/*.sh   ~/.config/hypr/scripts/
+install -m 644 "$REPO/.config/waybar/config"       ~/.config/waybar/config
+install -m 644 "$REPO/.config/waybar/style.css"    ~/.config/waybar/style.css
+install -m 755 "$REPO"/.config/waybar/scripts/*.sh ~/.config/waybar/scripts/
+install -m 644 "$REPO/.config/wofi/config"         ~/.config/wofi/config
+install -m 644 "$REPO/.config/wofi/style.css"      ~/.config/wofi/style.css
+install -m 644 "$REPO/.config/dunst/dunstrc"       ~/.config/dunst/dunstrc
+install -m 644 "$REPO/.config/kitty/kitty.conf"    ~/.config/kitty/kitty.conf
+install -m 755 "$REPO/.config/i3/clipboard_fix.sh" ~/.config/i3/clipboard_fix.sh
+cp -n "$REPO"/.wallpaper/* ~/.wallpaper/ 2>/dev/null || true
 
 echo "==> 5/5 make Hyprland the default LightDM session"
 sudo install -m 644 "$HERE/02-default-session.conf" \
@@ -57,7 +89,21 @@ fi
 
 cat <<'DONE'
 
-Done. Log out and pick "Hyprland" (not "Hyprland (diagnostic)").
+Done. The FIRST time, log out and pick "Hyprland (safe test)".
+
+That session arms a 120-second dead-man's switch: press CTRL+ALT+O to keep
+it, and if you cannot -- black screen, dead keyboard, anything -- it ends
+itself and hands you back to the login screen. No power cycle.
+
+At ANY time, CTRL+ALT+F3 switches to a text console. Hyprland handles that
+internally through logind, so it works even when every other keybind does
+not. Log in there and run:
+
+    pkill -x Hyprland
+
+then press CTRL+ALT+F7 to get back to the login screen.
+
+Once you are happy, use plain "Hyprland".
 
 If input dies again, ~/hyprland-diag.txt has the answer at the bottom
 within ~12 seconds, in plain words:
@@ -72,4 +118,18 @@ Rescue keybinds, deliberately not on SUPER in case the host grabs it:
     CTRL+ALT+T          terminal
     ALT+Return          terminal
     CTRL+ALT+BackSpace  exit Hyprland cleanly
+
+Rounded corners, blur and window animations are ON, and are tuned for a
+guest with no 3D acceleration: single-pass blur, cached for surfaces that
+have not changed, and no full-screen workspace animation. Do NOT go
+looking for "Accelerate 3D graphics" in the VM settings to speed this up
+-- on many hosts that option stops the VM booting at all, and this config
+does not need it.
+
+If it still drags, log out and pick "Hyprland (lite)": same config, same
+colours, same keybinds, blur and animations off, rounded corners kept.
+
+To see where the time actually goes, start a session with HYPR_OVERLAY=1
+for Hyprland's frame-timing overlay, change one value in
+~/.config/hypr/hyprland.lua, and press SUPER+SHIFT+C to reload.
 DONE

@@ -1,0 +1,7 @@
+[Desktop Entry]
+Name=Hyprland (lite)
+Comment=Same colours and keybinds with blur and animations off. Use if the normal session feels heavy.
+Exec=env HYPR_EFFECTS=lite /usr/local/bin/start-hyprland-vmware
+Type=Application
+DesktopNames=Hyprland
+Keywords=tiling;wayland;compositor;

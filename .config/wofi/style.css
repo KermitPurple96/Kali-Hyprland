@@ -1,48 +1,90 @@
+/*
+ * Wofi, dressed as kali-clean's Arc-Dark rofi.
+ *
+ * Same palette as the bar so the launcher and the status bar read as one
+ * thing:  #1C1D2B ground, #282A3E rows, #82c8ff accent, #E6FFF5 text.
+ * Hyprland blurs whatever sits behind it (see `layerrule = blur, wofi`).
+ */
+
+* {
+    font-family: "Hack Nerd Font", "RobotoMono Nerd Font", monospace;
+    font-size: 12px;
+}
+
 window {
-    margin: 0px;
-    border: 2px solid #43a047;
-    background-color: rgba(28, 29, 43, 0.9);
-    border-radius: 12px;
-}
-
-#input {
-    margin: 10px;
-    border: 1px solid #43a047;
+    margin: 0;
+    background-color: rgba(28, 29, 43, 0.88);
+    border: 3px solid #82c8ff;
+    border-radius: 10px;
     color: #E6FFF5;
-    background-color: rgba(40, 42, 62, 0.8);
-    border-radius: 8px;
-    padding: 8px;
-}
-
-#inner-box {
-    margin: 10px;
-    border: none;
-    background-color: transparent;
 }
 
 #outer-box {
-    margin: 10px;
+    margin: 0;
+    padding: 12px;
     border: none;
     background-color: transparent;
 }
 
+#input {
+    margin: 0 0 12px 0;
+    padding: 8px 12px;
+    border: 1px solid #333333;
+    border-radius: 6px;
+    color: #E6FFF5;
+    background-color: rgba(40, 42, 62, 0.85);
+    caret-color: #82c8ff;
+}
+
+#input:focus {
+    border-color: #82c8ff;
+}
+
+#input image {
+    color: #888888;
+}
+
 #scroll {
-    margin: 0px;
+    margin: 0;
     border: none;
 }
 
+#inner-box {
+    margin: 0;
+    border: none;
+    background-color: transparent;
+}
+
+#entry {
+    padding: 6px 10px;
+    border-radius: 6px;
+    background-color: transparent;
+}
+
+#entry:selected {
+    background-color: rgba(130, 200, 255, 0.22);
+    outline: none;
+}
+
+#entry:hover {
+    background-color: rgba(130, 200, 255, 0.12);
+}
+
 #text {
-    margin: 5px;
+    margin: 0 4px;
     border: none;
     color: #E6FFF5;
 }
 
-#entry:selected {
-    background-color: rgba(67, 160, 71, 0.3);
-    border-radius: 8px;
+#text:selected {
+    color: #FFFFFF;
 }
 
-#entry:hover {
-    background-color: rgba(67, 160, 71, 0.2);
-    border-radius: 8px;
+/* the fuzzy-match highlight */
+#text mark,
+#unselected mark,
+#selected mark {
+    background-color: transparent;
+    color: #82c8ff;
+    font-weight: bold;
 }

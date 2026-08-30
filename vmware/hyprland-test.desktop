@@ -1,0 +1,7 @@
+[Desktop Entry]
+Name=Hyprland (safe test)
+Comment=Hyprland with a 120s dead-man's switch. Press CTRL+ALT+O to keep the session, or it returns you here by itself.
+Exec=env HYPR_SAFETY=120 /usr/local/bin/start-hyprland-vmware
+Type=Application
+DesktopNames=Hyprland
+Keywords=tiling;wayland;compositor;

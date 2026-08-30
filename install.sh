@@ -1,265 +1,487 @@
-#!/bin/bash
-
-# Kali Hyprland Complete Configuration Installer
+#!/usr/bin/env bash
+# ╦ ╦╦ ╦╔═╗╦═╗╦  ╔═╗╔╗╔╔╦╗
+# ╠═╣╚╦╝╠═╝╠╦╝║  ╠═╣║║║ ║║
+# ╩ ╩ ╩ ╩  ╩╚═╩═╝╩ ╩╝╚╝═╩╝
+# Kali-Hyprland -- one script that installs the whole desktop.
 # Author: KermitPurple96
 # Repository: https://github.com/KermitPurple96/Kali-Hyprland
+#
+# This is the kali-clean setup (https://github.com/KermitPurple96/kali-clean)
+# carried over to Wayland: the same palette, the same gaps, the same
+# keybindings, plus the three things i3 could never do -- real window
+# animations, rounded corners and blur.
+#
+# USAGE
+#   ./install.sh                 interactive, asks what to install
+#   ./install.sh --hyprland      Hyprland only,  no questions asked
+#   ./install.sh --i3            i3 only,        no questions asked
+#   ./install.sh --both          both session types
+#   ./install.sh --all           both + Oh My Zsh + the VMware session entries
+#
+#   --yes / -y     answer yes to every prompt (implied by --all)
+#   --no-zsh       never install Oh My Zsh
+#   --vmware       also deploy the root-side VMware bits (session launcher
+#                  and login entries) by calling vmware/update-system.sh
+#   --skip-upgrade skip `apt upgrade` (still does `apt update`)
+#   -h / --help    this text
+#
+# Run it as your normal user. It calls sudo only where it must.
 
-set -e
+set -euo pipefail
 
-echo "╦ ╦╦ ╦╔═╗╦═╗╦  ╔═╗╔╗╔╔╦╗"
-echo "╠═╣╚╦╝╠═╝╠╦╝║  ╠═╣║║║ ║║"
-echo "╩ ╩ ╩ ╩  ╩╚═╩═╝╩ ╩╝╚╝═╩╝"
-echo ""
-echo "Kali Hyprland Complete Configuration Installer"
-echo "==============================================="
-echo ""
+REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+STAMP="$(date +%Y%m%d_%H%M%S)"
 
-# Check if running as root
-if [ "$EUID" -eq 0 ]; then
-    echo "️  Please do not run this script as root!"
-    echo "Run it as your regular user. It will ask for sudo when needed."
-    exit 1
+# Nerd Fonts release to pull from. v2.1.0 is what kali-clean pinned and what
+# these configs were built against; bump with NERD_VER=v3.4.0 ./install.sh
+# if you want the newer glyph set.
+NERD_VER="${NERD_VER:-v2.1.0}"
+
+# The wallpaper the config defaults to.
+WALLPAPER_NAME="John_Martin_Le_Pandemonium_Louvre.jpg"
+
+# ---------------------------------------------------------------- output ---
+c_reset=$'\033[0m'; c_ok=$'\033[32m'; c_warn=$'\033[33m'
+c_err=$'\033[31m';  c_hdr=$'\033[36m'; c_dim=$'\033[2m'
+
+hdr()  { printf '\n%s==> %s%s\n' "$c_hdr" "$*" "$c_reset"; }
+info() { printf '    %s\n' "$*"; }
+ok()   { printf '    %s%s%s\n' "$c_ok" "$*" "$c_reset"; }
+warn() { printf '    %s!  %s%s\n' "$c_warn" "$*" "$c_reset"; }
+die()  { printf '\n%sERROR: %s%s\n' "$c_err" "$*" "$c_reset" >&2; exit 1; }
+
+# ------------------------------------------------------------------ flags ---
+INSTALL_HYPRLAND=""
+INSTALL_I3=""
+ASSUME_YES=0
+WANT_ZSH=""
+WANT_VMWARE=0
+SKIP_UPGRADE=0
+
+# Print the header comment block (line 2 up to the first non-comment line)
+# rather than a hardcoded line range, so editing the header cannot make
+# --help start printing code.
+usage() {
+    awk 'NR>1 { if (/^#/) { sub(/^# ?/, ""); print } else { exit } }' "$0"
+    exit 0
+}
+
+while [ $# -gt 0 ]; do
+    case "$1" in
+        --hyprland)     INSTALL_HYPRLAND=true;  INSTALL_I3=${INSTALL_I3:-false} ;;
+        --i3)           INSTALL_I3=true;        INSTALL_HYPRLAND=${INSTALL_HYPRLAND:-false} ;;
+        --both)         INSTALL_HYPRLAND=true;  INSTALL_I3=true ;;
+        --all)          INSTALL_HYPRLAND=true;  INSTALL_I3=true
+                        ASSUME_YES=1; WANT_ZSH=true; WANT_VMWARE=1 ;;
+        -y|--yes)       ASSUME_YES=1 ;;
+        --no-zsh)       WANT_ZSH=false ;;
+        --vmware)       WANT_VMWARE=1 ;;
+        --skip-upgrade) SKIP_UPGRADE=1 ;;
+        -h|--help)      usage ;;
+        *)              die "unknown option: $1  (try --help)" ;;
+    esac
+    shift
+done
+
+# -------------------------------------------------------------- pre-flight --
+if [ "${EUID:-$(id -u)}" -eq 0 ]; then
+    die "Do not run this as root. Run it as your user; it will sudo when needed."
 fi
 
-# Ask user which setup they want
-echo "Which setup would you like to install?"
-echo "1) Hyprland (Wayland) - Modern, smooth, recommended"
-echo "2) i3-gaps (X11) - Classic setup from kali-clean"
-echo "3) Both (you can choose at login)"
-echo ""
-read -p "Enter your choice (1/2/3): " choice
+command -v apt >/dev/null 2>&1 || die "this installer expects a Debian/Kali system (no apt found)"
 
-case $choice in
-    1)
-        INSTALL_HYPRLAND=true
-        INSTALL_I3=false
-        ;;
-    2)
-        INSTALL_HYPRLAND=false
-        INSTALL_I3=true
-        ;;
-    3)
-        INSTALL_HYPRLAND=true
-        INSTALL_I3=true
-        ;;
-    *)
-        echo "Invalid choice. Exiting."
-        exit 1
-        ;;
-esac
+# Ask up front rather than half way through a long install.
+if [ -z "$INSTALL_HYPRLAND" ] && [ -z "$INSTALL_I3" ]; then
+    echo "╦ ╦╦ ╦╔═╗╦═╗╦  ╔═╗╔╗╔╔╦╗"
+    echo "╠═╣╚╦╝╠═╝╠╦╝║  ╠═╣║║║ ║║"
+    echo "╩ ╩ ╩ ╩  ╩╚═╩═╝╩ ╩╝╚╝═╩╝"
+    echo
+    echo "Which setup would you like to install?"
+    echo "  1) Hyprland (Wayland)  -- animations, rounded corners, blur"
+    echo "  2) i3 (X11)            -- the classic kali-clean setup"
+    echo "  3) Both                -- pick either one at the login screen"
+    echo
+    read -r -p "Enter your choice (1/2/3): " choice
+    case "$choice" in
+        1) INSTALL_HYPRLAND=true;  INSTALL_I3=false ;;
+        2) INSTALL_HYPRLAND=false; INSTALL_I3=true  ;;
+        3) INSTALL_HYPRLAND=true;  INSTALL_I3=true  ;;
+        *) die "invalid choice: $choice" ;;
+    esac
+fi
+INSTALL_HYPRLAND=${INSTALL_HYPRLAND:-false}
+INSTALL_I3=${INSTALL_I3:-false}
 
-echo ""
-echo " Updating system..."
-sudo apt update && sudo apt upgrade -y
+# Take the sudo prompt now, so a long unattended run does not stall on it
+# twenty minutes in.
+hdr "Checking sudo"
+sudo -v || die "sudo is required"
+ok "ok"
 
-# Common packages
-echo ""
-echo " Installing common packages..."
-sudo apt install -y \
+# ----------------------------------------------------------- apt helpers ---
+# One bad package name must not abort the whole install. This is exactly how
+# the old script died: it asked for "polkit-mate", which does not exist in
+# Kali (the package is "mate-polkit"), and `set -e` took the rest with it.
+apt_install() {
+    local want=() skip=() p
+    for p in "$@"; do
+        if apt-cache show "$p" >/dev/null 2>&1; then
+            want+=("$p")
+        else
+            skip+=("$p")
+        fi
+    done
+    for p in "${skip[@]:-}"; do
+        [ -n "$p" ] && warn "not in apt on this release, skipping: $p"
+    done
+    if [ ${#want[@]} -gt 0 ]; then
+        sudo apt install -y "${want[@]}"
+    fi
+}
+
+# ---------------------------------------------------------------- system ---
+hdr "Updating package lists"
+sudo apt update
+
+if [ "$SKIP_UPGRADE" -eq 0 ]; then
+    hdr "Upgrading installed packages (--skip-upgrade to skip)"
+    sudo apt upgrade -y
+else
+    info "skipped"
+fi
+
+# --------------------------------------------------------- common packages --
+# Everything kali-clean installs that is not specific to X11 or to Wayland.
+hdr "Installing common tools"
+apt_install \
     flameshot \
     feh \
     lxappearance \
-    python3-pip \
-    unclutter \
+    arc-theme \
     papirus-icon-theme \
     imagemagick \
+    unclutter \
+    python3-pip \
+    pipx \
     thunar \
-    kitty
+    kitty \
+    pavucontrol \
+    brightnessctl \
+    playerctl \
+    xdg-desktop-portal-gtk \
+    fonts-hack \
+    curl \
+    wget \
+    unzip \
+    git
 
-# Fonts
-echo ""
-echo " Installing Nerd Fonts..."
-mkdir -p ~/.local/share/fonts/
+# ----------------------------------------------------------------- fonts ---
+# These configs name three families:
+#   Hack Nerd Font        kitty, waybar, wofi, dunst, the Hyprland groupbar
+#   RobotoMono Nerd Font  the i3 bar and window titles
+#   Iosevka Nerd Font     kali-clean shipped it, kept for parity
+#
+# NOTE the Debian package `fonts-hack` is NOT the same thing as Hack Nerd
+# Font: it has the letterforms but none of the patched glyphs, so every
+# icon in the bar renders as a tofu box. The Nerd Font build has to come
+# from the nerd-fonts release. The old installer never fetched it at all,
+# which is why a fresh box came up with a bar full of empty rectangles.
+install_nerd_font() {
+    local zip="$1" family="$2" url tmp
+    if fc-list 2>/dev/null | grep -qi "$family"; then
+        ok "$family already present"
+        return 0
+    fi
+    url="https://github.com/ryanoasis/nerd-fonts/releases/download/$NERD_VER/$zip.zip"
+    tmp="$(mktemp -d)"
+    info "downloading $zip ($NERD_VER)..."
+    if ! curl -fsSL --retry 3 -o "$tmp/$zip.zip" "$url"; then
+        warn "could not download $zip from $url -- skipping"
+        rm -rf "$tmp"; return 0
+    fi
+    mkdir -p "$HOME/.local/share/fonts/$zip"
+    unzip -qo "$tmp/$zip.zip" -d "$HOME/.local/share/fonts/$zip" \
+        -x '*Windows Compatible*' 2>/dev/null || \
+        unzip -qo "$tmp/$zip.zip" -d "$HOME/.local/share/fonts/$zip"
+    rm -rf "$tmp"
+    ok "$family installed"
+}
 
-if [ ! -f ~/.local/share/fonts/Iosevka ]; then
-    echo "Downloading Iosevka Nerd Font..."
-    wget -q https://github.com/ryanoasis/nerd-fonts/releases/download/v2.1.0/Iosevka.zip
-    unzip -q Iosevka.zip -d ~/.local/share/fonts/
-    rm Iosevka.zip
+hdr "Installing Nerd Fonts"
+mkdir -p "$HOME/.local/share/fonts"
+install_nerd_font Hack       "Hack Nerd Font"
+install_nerd_font RobotoMono "RobotoMono Nerd Font"
+install_nerd_font Iosevka    "Iosevka Nerd Font"
+info "refreshing the font cache..."
+fc-cache -f >/dev/null
+# Say plainly whether the font the configs actually depend on is there.
+if fc-list | grep -qi "Hack Nerd Font"; then
+    ok "Hack Nerd Font is available -- bar glyphs will render"
+else
+    warn "Hack Nerd Font is still missing; icons in the bar will show as boxes"
 fi
 
-if [ ! -f ~/.local/share/fonts/RobotoMono ]; then
-    echo "Downloading RobotoMono Nerd Font..."
-    wget -q https://github.com/ryanoasis/nerd-fonts/releases/download/v2.1.0/RobotoMono.zip
-    unzip -q RobotoMono.zip -d ~/.local/share/fonts/
-    rm RobotoMono.zip
+# ------------------------------------------------------------------ pywal ---
+# kali-clean ran `pip3 install pywal`. That fails on current Kali: Python is
+# marked externally-managed (PEP 668), so pip refuses to write into the
+# system site-packages. pipx gives it its own venv and puts `wal` on PATH.
+hdr "Installing pywal"
+if command -v wal >/dev/null 2>&1; then
+    ok "already installed"
+elif command -v pipx >/dev/null 2>&1; then
+    pipx install pywal >/dev/null 2>&1 && ok "installed via pipx" \
+        || warn "pipx could not install pywal -- skipping (it is optional)"
+    pipx ensurepath >/dev/null 2>&1 || true
+else
+    pip3 install --user --break-system-packages pywal >/dev/null 2>&1 \
+        && ok "installed via pip --break-system-packages" \
+        || warn "could not install pywal -- skipping (it is optional)"
 fi
 
-fc-cache -fv
+# ------------------------------------------------------- config deployment --
+# Back up FIRST, then recreate the directory, then copy in.
+#
+# The old script did this the other way round: it ran `mkdir -p` on every
+# config directory, then moved the non-empty ones aside as a backup, and
+# then copied into a path that no longer existed. On a fresh machine the
+# directories were empty so nothing was moved and nobody noticed; on a
+# re-install it moved the directory away and the copy failed, taking the
+# rest of the script with it under `set -e`.
+backup_and_make() {
+    local d="$HOME/.config/$1"
+    if [ -d "$d" ] && [ -n "$(ls -A "$d" 2>/dev/null)" ]; then
+        mv "$d" "$d.backup.$STAMP"
+        info "backed up ~/.config/$1 -> $1.backup.$STAMP"
+    fi
+    mkdir -p "$d"
+}
 
-# Install i3-gaps setup
+# --------------------------------------------------------------- wallpaper --
+hdr "Installing wallpapers"
+mkdir -p "$HOME/.wallpaper"
+cp -n "$REPO"/.wallpaper/* "$HOME/.wallpaper/" 2>/dev/null || true
+install -m 755 "$REPO/.fehbg" "$HOME/.fehbg"
+if [ -f "$HOME/.wallpaper/$WALLPAPER_NAME" ]; then
+    ok "default wallpaper: ~/.wallpaper/$WALLPAPER_NAME"
+    info "(John Martin, 'Le Pandemonium', Louvre)"
+else
+    warn "$WALLPAPER_NAME not found in the repo -- the config falls back to"
+    warn "the next image in ~/.wallpaper, or to a flat #1C1D2B background"
+fi
+
+# ---------------------------------------------------------------- i3 (X11) --
 if [ "$INSTALL_I3" = true ]; then
-    echo ""
-    echo " Installing i3-gaps and related packages..."
-    sudo apt install -y \
-        arandr \
-        arc-theme \
-        i3blocks \
-        i3status \
+    hdr "Installing i3 (X11)"
+    # No i3-gaps source build. Gaps have been part of upstream i3 since
+    # 4.22 -- Kali ships 4.25 with src/gaps.c compiled in -- so the whole
+    # meson/ninja build kali-clean did, and the ~25 -dev packages it needed,
+    # are gone. `gaps inner 2` in the config just works.
+    apt_install \
         i3 \
         i3-wm \
+        i3status \
+        i3blocks \
         rofi \
-        cargo \
+        arandr \
         compton \
-        libxcb-shape0-dev \
-        libxcb-keysyms1-dev \
-        libpango1.0-dev \
-        libxcb-util0-dev \
-        libxcb1-dev \
-        libxcb-icccm4-dev \
-        libyajl-dev \
-        libev-dev \
-        libxcb-xkb-dev \
-        libxcb-cursor-dev \
-        libxkbcommon-dev \
-        libxcb-xinerama0-dev \
-        libxkbcommon-x11-dev \
-        libstartup-notification0-dev \
-        libxcb-randr0-dev \
-        libxcb-xrm0 \
-        libxcb-xrm-dev \
-        autoconf \
-        meson \
-        libxcb-render-util0-dev \
-        libxcb-shape0-dev \
-        libxcb-xfixes0-dev
+        picom \
+        alacritty \
+        xclip
 
-    # Install Alacritty
-    echo " Installing Alacritty..."
-    if ! command -v alacritty &> /dev/null; then
-        wget -q https://github.com/barnumbirr/alacritty-debian/releases/download/v0.10.0-rc4-1/alacritty_0.10.0-rc4-1_amd64_bullseye.deb
-        sudo dpkg -i alacritty_0.10.0-rc4-1_amd64_bullseye.deb || sudo apt install -f -y
-        rm alacritty_0.10.0-rc4-1_amd64_bullseye.deb
-    fi
+    # kali-clean fetched a Debian bullseye .deb for Alacritty because there
+    # was no package at the time. Kali packages it now (0.16.x), so that
+    # download is gone too. If apt somehow had none, say so rather than
+    # silently leaving a config for a missing terminal.
+    command -v alacritty >/dev/null 2>&1 || warn "alacritty is not installed; SUPER+Return in i3 will fail"
 
-    # Install pywal
-    echo " Installing pywal..."
-    pip3 install pywal
-
-    echo ""
-    echo " Creating i3 configuration directories..."
-    mkdir -p ~/.config/i3
-    mkdir -p ~/.config/compton
-    mkdir -p ~/.config/rofi
-    mkdir -p ~/.config/alacritty
-
-    echo " Copying i3 configuration files..."
-
-    # Backup existing configs
-    for dir in i3 compton rofi alacritty; do
-        if [ -d ~/.config/$dir ] && [ "$(ls -A ~/.config/$dir)" ]; then
-            echo "️  Backing up existing $dir config..."
-            mv ~/.config/$dir ~/.config/$dir.backup.$(date +%Y%m%d_%H%M%S)
-        fi
-    done
-
-    cp -r .config/i3/* ~/.config/i3/
-    cp -r .config/compton/* ~/.config/compton/
-    cp -r .config/rofi/* ~/.config/rofi/
-    cp -r .config/alacritty/* ~/.config/alacritty/
-    cp .fehbg ~/.fehbg
-    cp -r .wallpaper ~/.wallpaper
-
-    chmod +x ~/.config/i3/clipboard_fix.sh
-    chmod +x ~/.fehbg
+    hdr "Deploying i3 configuration"
+    for d in i3 compton rofi alacritty; do backup_and_make "$d"; done
+    cp -r "$REPO"/.config/i3/.        "$HOME/.config/i3/"
+    cp -r "$REPO"/.config/compton/.   "$HOME/.config/compton/"
+    cp -r "$REPO"/.config/rofi/.      "$HOME/.config/rofi/"
+    cp -r "$REPO"/.config/alacritty/. "$HOME/.config/alacritty/"
+    chmod +x "$HOME/.config/i3/clipboard_fix.sh" 2>/dev/null || true
+    ok "i3 configured"
 fi
 
-# Install Hyprland setup
+# --------------------------------------------------------- Hyprland (Wayland) --
 if [ "$INSTALL_HYPRLAND" = true ]; then
-    echo ""
-    echo " Installing Hyprland and related packages..."
-    sudo apt install -y \
+    hdr "Installing Hyprland (Wayland)"
+    apt_install \
         hyprland \
+        xdg-desktop-portal-hyprland \
+        xwayland \
         waybar \
         wofi \
         dunst \
         grim \
         slurp \
         wl-clipboard \
+        swaybg \
         swaylock \
         swayidle \
-        xdg-desktop-portal-hyprland
+        wireplumber \
+        network-manager-gnome \
+        blueman \
+        mate-polkit \
+        qt6ct
 
-    echo ""
-    echo " Creating Hyprland configuration directories..."
-    mkdir -p ~/.config/hypr
-    mkdir -p ~/.config/waybar
-    mkdir -p ~/.config/wofi
+    # The Wayland-native replacements for the X11 tools kali-clean used.
+    # None of these is load-bearing -- the desktop comes up without them --
+    # so they go in their own call and a missing one is just a warning.
+    hdr "Installing Wayland equivalents of the kali-clean X11 tools"
+    info "nwg-look  -> lxappearance   (GTK theming)"
+    info "wdisplays -> arandr         (monitor layout)"
+    info "cliphist  -> clipboard history"
+    apt_install \
+        nwg-look \
+        wdisplays \
+        wlr-randr \
+        cliphist \
+        wtype \
+        hyprpicker
 
-    echo " Copying Hyprland configuration files..."
+    hdr "Deploying Hyprland configuration"
+    for d in hypr waybar wofi dunst; do backup_and_make "$d"; done
+    mkdir -p "$HOME/.config/hypr/scripts" "$HOME/.config/waybar/scripts"
+    cp -r "$REPO"/.config/hypr/.   "$HOME/.config/hypr/"
+    cp -r "$REPO"/.config/waybar/. "$HOME/.config/waybar/"
+    cp -r "$REPO"/.config/wofi/.   "$HOME/.config/wofi/"
+    cp -r "$REPO"/.config/dunst/.  "$HOME/.config/dunst/"
 
-    # Backup existing configs
-    for dir in hypr waybar wofi; do
-        if [ -d ~/.config/$dir ] && [ "$(ls -A ~/.config/$dir)" ]; then
-            echo "️  Backing up existing $dir config..."
-            mv ~/.config/$dir ~/.config/$dir.backup.$(date +%Y%m%d_%H%M%S)
-        fi
-    done
+    # Only hyprland.lua is deployed. Hyprland 0.51+ reads the Lua config;
+    # 0.56 still loads a hyprland.conf but warns that support goes away in
+    # 0.57. The .conf build of this same setup lives in legacy/ -- for
+    # older Hyprland only, and never both files in ~/.config/hypr at once.
+    HYPR_MINOR=$(Hyprland --version 2>/dev/null \
+        | grep -oE 'Hyprland [0-9]+\.[0-9]+' | head -1 | cut -d. -f2)
+    if [ -n "${HYPR_MINOR:-}" ] && [ "$HYPR_MINOR" -lt 51 ] 2>/dev/null; then
+        warn "Hyprland 0.$HYPR_MINOR predates the Lua config -- installing legacy/hyprland.conf"
+        rm -f "$HOME/.config/hypr/hyprland.lua"
+        cp "$REPO/legacy/hyprland.conf" "$HOME/.config/hypr/hyprland.conf"
+    else
+        rm -f "$HOME/.config/hypr/hyprland.conf"
+    fi
 
-    cp -r .config/hypr/* ~/.config/hypr/
-    cp -r .config/waybar/* ~/.config/waybar/
-    cp -r .config/wofi/* ~/.config/wofi/
+    chmod +x "$HOME"/.config/hypr/scripts/*.sh   2>/dev/null || true
+    chmod +x "$HOME"/.config/waybar/scripts/*.sh 2>/dev/null || true
+
+    # The Hyprland config reuses kali-clean's VM clipboard fix.
+    mkdir -p "$HOME/.config/i3"
+    cp -n "$REPO/.config/i3/clipboard_fix.sh" "$HOME/.config/i3/" 2>/dev/null || true
+    chmod +x "$HOME/.config/i3/clipboard_fix.sh" 2>/dev/null || true
+    ok "Hyprland configured"
 fi
 
-# Install Kitty config
-echo ""
-echo " Copying Kitty configuration..."
-mkdir -p ~/.config/kitty
-if [ -f ~/.config/kitty/kitty.conf ]; then
-    echo "️  Backing up existing Kitty config..."
-    mv ~/.config/kitty/kitty.conf ~/.config/kitty/kitty.conf.backup.$(date +%Y%m%d_%H%M%S)
+# ------------------------------------------------------------------ kitty ---
+hdr "Deploying Kitty configuration"
+mkdir -p "$HOME/.config/kitty"
+if [ -f "$HOME/.config/kitty/kitty.conf" ]; then
+    cp "$HOME/.config/kitty/kitty.conf" "$HOME/.config/kitty/kitty.conf.backup.$STAMP"
+    info "backed up kitty.conf -> kitty.conf.backup.$STAMP"
 fi
-cp -r .config/kitty/* ~/.config/kitty/
-
-# Install Oh My Zsh (optional)
-read -p "Would you like to install Oh My Zsh? (y/n): " install_zsh
-if [[ $install_zsh == "y" || $install_zsh == "Y" ]]; then
-    echo ""
-    echo " Installing Oh My Zsh..."
-    sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" "" --unattended
+cp -r "$REPO"/.config/kitty/. "$HOME/.config/kitty/"
+# kitty.conf ends with `shell fish`. If fish is not installed, kitty opens a
+# window that dies instantly -- and on this setup kitty is the rescue
+# terminal, so that failure is worth catching here rather than at 3am.
+if grep -qE '^\s*shell\s+fish' "$HOME/.config/kitty/kitty.conf" 2>/dev/null \
+   && ! command -v fish >/dev/null 2>&1; then
+    warn "kitty.conf sets 'shell fish' but fish is not installed."
+    warn "Either: sudo apt install fish     -- or edit ~/.config/kitty/kitty.conf"
 fi
+ok "kitty configured"
 
-echo ""
-echo " Installation complete!"
-echo ""
-
-if [ "$INSTALL_I3" = true ] && [ "$INSTALL_HYPRLAND" = true ]; then
-    echo "Both i3 and Hyprland have been installed!"
-    echo ""
-    echo "To use i3:"
-    echo "  - Log out and select 'i3' from your display manager"
-    echo "  - Run: pywal -i ~/.wallpaper/yourimage.jpg (to set colors)"
-    echo "  - Run: lxappearance (and select arc-dark theme)"
-    echo ""
-    echo "To use Hyprland:"
-    echo "  - Log out and select 'Hyprland' from your display manager"
-    echo "  - Or run: Hyprland"
-elif [ "$INSTALL_HYPRLAND" = true ]; then
-    echo "Hyprland has been installed!"
-    echo ""
-    echo "To start Hyprland:"
-    echo "  1. Log out of your current session"
-    echo "  2. Select 'Hyprland' from your display manager"
-    echo "  3. Or run: Hyprland"
-    echo ""
-    echo "Keybindings (Super = Windows key):"
-    echo "  Super + Enter       - Terminal"
-    echo "  Super + D           - App launcher"
-    echo "  Super + Shift + Q   - Close window"
-    echo "  Super + Shift + E   - Exit Hyprland"
-elif [ "$INSTALL_I3" = true ]; then
-    echo "i3-gaps has been installed!"
-    echo ""
-    echo "To start i3:"
-    echo "  1. Log out of your current session"
-    echo "  2. Select 'i3' from your display manager"
-    echo ""
-    echo "Post-install steps:"
-    echo "  - Run: pywal -i ~/.wallpaper/yourimage.jpg (to set colors)"
-    echo "  - Run: lxappearance (and select arc-dark theme)"
+# -------------------------------------------------------------- VMware bits --
+if [ "$WANT_VMWARE" -eq 1 ]; then
+    hdr "Deploying the VMware session launcher and login entries"
+    if [ -x "$REPO/vmware/update-system.sh" ]; then
+        "$REPO/vmware/update-system.sh"
+    else
+        warn "vmware/update-system.sh not found or not executable -- skipping"
+    fi
 fi
 
-echo ""
-echo "For more info, see README.md"
-echo ""
-echo "Enjoy your new setup! "
+# ------------------------------------------------------------- Oh My Zsh ---
+if [ -z "$WANT_ZSH" ]; then
+    if [ "$ASSUME_YES" -eq 1 ]; then
+        WANT_ZSH=false
+    else
+        read -r -p "Would you like to install Oh My Zsh? (y/N): " a
+        case "$a" in [yY]*) WANT_ZSH=true ;; *) WANT_ZSH=false ;; esac
+    fi
+fi
+if [ "$WANT_ZSH" = true ]; then
+    hdr "Installing Oh My Zsh"
+    if [ -d "$HOME/.oh-my-zsh" ]; then
+        ok "already installed"
+    else
+        sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" "" --unattended \
+            || warn "Oh My Zsh install failed -- carrying on"
+    fi
+fi
+
+# ------------------------------------------------------------------- done ---
+hdr "Installation complete"
+
+if [ "$INSTALL_HYPRLAND" = true ]; then
+cat <<'HYPR'
+
+  Hyprland
+  --------
+  Log out and pick "Hyprland" at the login screen.
+
+  In a VMware guest, run the root-side deploy too (or pass --vmware):
+
+      cd vmware && ./update-system.sh
+
+  and the FIRST time pick "Hyprland (safe test)". It arms a 120-second
+  dead-man's switch: press CTRL+ALT+O to keep the session, and if you
+  cannot -- black screen, dead keyboard, anything -- it ends itself and
+  returns you to the greeter. No power cycle.
+
+  CTRL+ALT+F3 always gives you a text console; Hyprland handles that one
+  internally through logind, so it works even if every keybind is broken.
+
+  Keybindings (Super = Windows key) -- the same as kali-clean's i3:
+    Super + Enter          terminal (kitty)
+    Super + D              app launcher (wofi)
+    Super + Shift + Q      close window
+    Super + J/K/L/;        focus left/down/up/right
+    Super + Shift + same   move window
+    Super + H / V          split horizontal / vertical
+    Super + S / W          group (i3's stacking / tabbed)
+    Super + F              fullscreen
+    Super + R              resize mode (Escape to leave)
+    Super + Shift + P      screenshot (grim + slurp)
+    Super + Shift + E      exit
+    Ctrl + Alt + T         rescue terminal (works without Super)
+
+  Looks: 3px borders, 10px rounded corners, blur behind kitty, waybar,
+  wofi and dunst, and animated window open/close/move.
+
+  Effects profiles, set on the session entry or the command line:
+    HYPR_EFFECTS=soft   default -- tuned for software rendering
+    HYPR_EFFECTS=full   everything, for a machine with a real GPU
+    HYPR_EFFECTS=lite   rounding only, the panic button
+HYPR
+fi
+
+if [ "$INSTALL_I3" = true ]; then
+cat <<'I3'
+
+  i3
+  --
+  Log out and pick "i3" at the login screen, then:
+    lxappearance          and choose arc-dark
+    wal -i ~/.wallpaper/John_Martin_Le_Pandemonium_Louvre.jpg   (optional colours)
+I3
+fi
+
+echo
+echo "  Wallpaper: ~/.wallpaper/$WALLPAPER_NAME"
+echo "  Change it by editing ~/.fehbg (i3) or setting WALLPAPER=/path/to.jpg"
+echo "  before the session starts (Hyprland)."
+echo
+echo "  See README.md for the full keymap and VMWARE-NOTES.md for the"
+echo "  VMware-specific details."
+echo

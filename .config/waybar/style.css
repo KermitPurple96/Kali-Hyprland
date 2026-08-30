@@ -1,87 +1,144 @@
+/*
+ * kali-clean's i3bar, rebuilt in Waybar.
+ *
+ * Every colour below is copied out of the `bar { colors { ... } }` block of
+ * the kali-clean i3 config, or is the i3 default for a state that block did
+ * not override. i3bar is flat and square, so nothing here is rounded.
+ *
+ *   background        #1C1D2B88   ->  rgba(28, 29, 43, 0.53)
+ *   statusline        #E6FFF5
+ *   focused_workspace #282A3E88 / #282A3E88 / #FFFFFF
+ *   inactive (i3 default)   #333333 / #222222 / #888888
+ *   urgent   (i3 default)   #2F343A / #900000 / #FFFFFF
+ *   tun0 indicator    #3BB92D      (from i3blocks [iface] color=)
+ */
+
 * {
     border: none;
     border-radius: 0;
-    font-family: "Hack Nerd Font";
-    font-size: 13px;
+    /* i3: font pango:RobotoMono Nerd Font Regular 7.5  ->  10px at 96dpi */
+    font-family: "Hack Nerd Font", "RobotoMono Nerd Font", monospace;
+    font-size: 10px;
+    font-weight: normal;
     min-height: 0;
 }
 
 window#waybar {
-    background: rgba(28, 29, 43, 0.8);
+    background: rgba(28, 29, 43, 0.53);
     color: #E6FFF5;
+}
+
+window#waybar.hidden {
+    opacity: 0.0;
 }
 
 tooltip {
-    background: rgba(40, 42, 62, 0.9);
-    border: 1px solid rgba(67, 160, 71, 0.5);
-    border-radius: 8px;
+    background: rgba(28, 29, 43, 0.95);
+    border: 2px solid #82c8ff;
+    color: #E6FFF5;
+}
+
+/* ---- workspaces: i3bar's buttons -------------------------------------- */
+
+#workspaces {
+    margin: 0;
+    padding: 0;
 }
 
 #workspaces button {
-    padding: 0 10px;
-    color: #E6FFF5;
-    background: transparent;
+    padding: 0 8px;
+    margin: 0;
+    color: #888888;
+    background: rgba(34, 34, 34, 0.53);
+    border-top: 1px solid #333333;
+    border-bottom: 1px solid #333333;
     border-radius: 0;
 }
 
-#workspaces button:hover {
-    background: rgba(67, 160, 71, 0.2);
+#workspaces button.visible {
+    color: #ffffff;
+    background: rgba(95, 103, 106, 0.53);
+    border-color: #333333;
 }
 
 #workspaces button.active {
-    background: rgba(67, 160, 71, 0.3);
-    color: #ffffff;
+    color: #FFFFFF;
+    background: rgba(40, 42, 62, 0.53);
+    border-color: rgba(40, 42, 62, 0.53);
 }
 
 #workspaces button.urgent {
-    background: rgba(144, 0, 0, 0.5);
+    color: #FFFFFF;
+    background: rgba(144, 0, 0, 0.85);
+    border-color: #2F343A;
 }
 
-#window {
-    margin: 0 10px;
+#workspaces button:hover {
+    background: rgba(130, 200, 255, 0.20);
     color: #E6FFF5;
 }
 
-#clock,
-#battery,
+/* ---- resize submap: i3bar's binding-mode indicator -------------------- */
+
+#submap {
+    color: #FFFFFF;
+    background: rgba(144, 0, 0, 0.85);
+    padding: 0 8px;
+}
+
+/* ---- focused window title -------------------------------------------- */
+
+#window {
+    color: #E6FFF5;
+    padding: 0 10px;
+}
+
+window#waybar.empty #window {
+    background: transparent;
+}
+
+/* ---- status blocks ---------------------------------------------------- */
+/* i3blocks: separator=false, separator_block_width=30
+   -> 15px either side gives the same 30px gutter, and no divider lines.    */
+
 #cpu,
 #memory,
+#disk,
 #network,
-#pulseaudio,
+#custom-vpn,
+#clock,
 #tray {
-    padding: 0 10px;
-    margin: 0 2px;
-    background: rgba(40, 42, 62, 0.6);
-    border-radius: 8px;
+    padding: 0 15px;
+    background: transparent;
+    color: #E6FFF5;
 }
 
-#battery.charging {
-    color: #43a047;
+#clock {
+    padding-right: 12px;
 }
 
-#battery.warning:not(.charging) {
-    color: #fabd2f;
+/* i3blocks [iface] color=#3BB92D */
+#custom-vpn.connected {
+    color: #3BB92D;
 }
 
-#battery.critical:not(.charging) {
-    color: #fb4934;
-    animation-name: blink;
-    animation-duration: 0.5s;
-    animation-timing-function: linear;
-    animation-iteration-count: infinite;
-    animation-direction: alternate;
-}
-
-@keyframes blink {
-    to {
-        background-color: rgba(251, 73, 52, 0.5);
-    }
+/* tun0 down: the block collapses, exactly like an empty i3blocks block */
+#custom-vpn.disconnected {
+    padding: 0;
 }
 
 #network.disconnected {
-    color: #fb4934;
+    color: #900000;
 }
 
-#pulseaudio.muted {
-    color: #928374;
+#tray {
+    padding: 0 10px;
+}
+
+#tray > .passive {
+    -gtk-icon-effect: dim;
+}
+
+#tray > .needs-attention {
+    -gtk-icon-effect: highlight;
 }
