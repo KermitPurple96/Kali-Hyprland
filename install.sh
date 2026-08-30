@@ -295,12 +295,38 @@ if [ "$INSTALL_I3" = true ]; then
     command -v alacritty >/dev/null 2>&1 || warn "alacritty is not installed; SUPER+Return in i3 will fail"
 
     hdr "Deploying i3 configuration"
-    for d in i3 compton rofi alacritty; do backup_and_make "$d"; done
-    cp -r "$REPO"/.config/i3/.        "$HOME/.config/i3/"
-    cp -r "$REPO"/.config/compton/.   "$HOME/.config/compton/"
-    cp -r "$REPO"/.config/rofi/.      "$HOME/.config/rofi/"
-    cp -r "$REPO"/.config/alacritty/. "$HOME/.config/alacritty/"
+    for d in i3 compton rofi; do backup_and_make "$d"; done
+    cp -r "$REPO"/.config/i3/.      "$HOME/.config/i3/"
+    cp -r "$REPO"/.config/compton/. "$HOME/.config/compton/"
+    cp -r "$REPO"/.config/rofi/.    "$HOME/.config/rofi/"
     chmod +x "$HOME/.config/i3/clipboard_fix.sh" 2>/dev/null || true
+
+    # The pentest status blocks. i3blocks resolves a bare block name to
+    # /usr/share/i3blocks/$BLOCK_NAME, so these have to be there, not in
+    # $HOME. (Under Hyprland the same logic lives in
+    # ~/.config/waybar/scripts and needs no root.)
+    info "installing i3blocks scripts -> /usr/share/i3blocks/"
+    sudo mkdir -p /usr/share/i3blocks
+    for f in "$REPO"/usr/share/i3blocks/*.sh; do
+        sudo install -m 755 "$f" /usr/share/i3blocks/
+    done
+    # The interface name the ethernet/gateway blocks read. Default it to
+    # whatever actually carries the default route rather than a hardcoded
+    # eth0, which is wrong on most VMs (ens33, enp0s3...).
+    if [ ! -s /usr/share/i3blocks/iface ]; then
+        detected=$(ip route show default 2>/dev/null | awk '/default/{print $5; exit}')
+        printf '%s\n' "${detected:-eth0}" | sudo tee /usr/share/i3blocks/iface >/dev/null
+        info "i3blocks iface = ${detected:-eth0}"
+    fi
+
+    # i3-workspace-names-daemon puts an app glyph next to each workspace
+    # number (i3/app-icons.json). pip, because it is not packaged.
+    if ! command -v i3-workspace-names-daemon >/dev/null 2>&1; then
+        pipx install i3-workspace-names-daemon >/dev/null 2>&1 \
+            || pip3 install --user --break-system-packages i3-workspace-names-daemon >/dev/null 2>&1 \
+            || warn "could not install i3-workspace-names-daemon (workspace icons will be off)"
+    fi
+    apt_install fonts-font-awesome
     ok "i3 configured"
 fi
 
@@ -329,25 +355,50 @@ if [ "$INSTALL_HYPRLAND" = true ]; then
     # The Wayland-native replacements for the X11 tools kali-clean used.
     # None of these is load-bearing -- the desktop comes up without them --
     # so they go in their own call and a missing one is just a warning.
-    hdr "Installing Wayland equivalents of the kali-clean X11 tools"
-    info "nwg-look  -> lxappearance   (GTK theming)"
-    info "wdisplays -> arandr         (monitor layout)"
-    info "cliphist  -> clipboard history"
+    hdr "Installing Wayland equivalents of the i3-kitty X11 tools"
+    info "fuzzel    -> rofi           (launcher -- the fast one, see below)"
+    info "cliphist  -> clipmenu        (clipboard history, SUPER+C)"
+    info "nwg-look  -> lxappearance    (GTK theming)"
+    info "wdisplays -> arandr          (monitor layout)"
+    # fuzzel matters more than the rest: wofi re-matches ~345 desktop
+    # entries and repaints its whole layer on every keystroke, which on a
+    # software renderer is what makes SUPER+D stutter and drop keys.
+    # fuzzel is a native Wayland client with an in-memory index.
     apt_install \
+        fuzzel \
+        cliphist \
         nwg-look \
         wdisplays \
         wlr-randr \
-        cliphist \
         wtype \
         hyprpicker
 
+    if command -v fuzzel >/dev/null 2>&1; then
+        ok "fuzzel installed -- SUPER+D will use it"
+    else
+        warn "fuzzel not installed; SUPER+D falls back to wofi, which is slower"
+    fi
+
+    # The pentest status-bar blocks read these. i3-kitty created them in
+    # config.sh; without them the bar shows "no target"/"no domain", which
+    # is correct but the files should exist so you can just echo into them.
+    hdr "Creating the ~/.config/bin state files the status bar reads"
+    mkdir -p "$HOME/.config/bin"
+    for f in target.txt domain.txt ttl.txt target_sys.txt session.txt name.txt; do
+        [ -e "$HOME/.config/bin/$f" ] || : > "$HOME/.config/bin/$f"
+    done
+    ok "~/.config/bin ready (target, domain, ttl, target_sys, session)"
+    info "set one with:  echo 10.10.11.5 > ~/.config/bin/target.txt"
+    info "start the session clock:  date +%s > ~/.config/bin/session.txt"
+
     hdr "Deploying Hyprland configuration"
-    for d in hypr waybar wofi dunst; do backup_and_make "$d"; done
+    for d in hypr waybar wofi dunst fuzzel; do backup_and_make "$d"; done
     mkdir -p "$HOME/.config/hypr/scripts" "$HOME/.config/waybar/scripts"
     cp -r "$REPO"/.config/hypr/.   "$HOME/.config/hypr/"
     cp -r "$REPO"/.config/waybar/. "$HOME/.config/waybar/"
     cp -r "$REPO"/.config/wofi/.   "$HOME/.config/wofi/"
     cp -r "$REPO"/.config/dunst/.  "$HOME/.config/dunst/"
+    cp -r "$REPO"/.config/fuzzel/. "$HOME/.config/fuzzel/"
 
     # Only hyprland.lua is deployed. Hyprland 0.51+ reads the Lua config;
     # 0.56 still loads a hyprland.conf but warns that support goes away in
@@ -399,6 +450,36 @@ if [ "$WANT_VMWARE" -eq 1 ]; then
     else
         warn "vmware/update-system.sh not found or not executable -- skipping"
     fi
+fi
+
+# --------------------------------------------- shell / editor / tmux ---
+# These are window-manager agnostic, so they go on for both sessions.
+hdr "Deploying fish, neovim and tmux configuration"
+apt_install fish tmux neovim fzf ripgrep bat jq
+
+mkdir -p "$HOME/.config/fish/functions" "$HOME/.config/nvim/lua"
+for f in config.fish fish_variables; do
+    [ -f "$HOME/.config/fish/$f" ] && cp "$HOME/.config/fish/$f" "$HOME/.config/fish/$f.bak.$STAMP"
+    cp "$REPO/.config/fish/$f" "$HOME/.config/fish/$f"
+done
+cp "$REPO"/.config/fish/functions/*.fish "$HOME/.config/fish/functions/"
+cp "$REPO/.config/nvim/init.lua"         "$HOME/.config/nvim/init.lua"
+cp "$REPO/.config/nvim/lua/mappings.lua" "$HOME/.config/nvim/lua/mappings.lua"
+[ -f "$HOME/.tmux.conf" ] && cp "$HOME/.tmux.conf" "$HOME/.tmux.conf.bak.$STAMP"
+cp "$REPO/tmux.conf" "$HOME/.tmux.conf"
+if [ ! -d "$HOME/.tmux-themepack" ]; then
+    git clone -q --depth 1 https://github.com/jimeh/tmux-themepack.git "$HOME/.tmux-themepack" \
+        || warn "could not clone tmux-themepack"
+fi
+cp "$REPO/basic.tmuxtheme" "$HOME/.tmux-themepack/basic.tmuxtheme" 2>/dev/null || true
+ok "fish / neovim / tmux configured"
+
+# kitty.conf ends with `shell fish`, so fish has to exist or kitty opens a
+# window that dies immediately -- and kitty is the rescue terminal here.
+if command -v fish >/dev/null 2>&1; then
+    ok "fish present (kitty.conf sets 'shell fish')"
+else
+    warn "fish is NOT installed but kitty.conf sets 'shell fish' -- fix one or the other"
 fi
 
 # ------------------------------------------------------------- Oh My Zsh ---

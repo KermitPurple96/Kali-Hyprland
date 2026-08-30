@@ -104,41 +104,44 @@ window#waybar.empty #window {
 #cpu,
 #memory,
 #disk,
-#network,
-#custom-vpn,
 #clock,
-#tray {
+#tray,
+#custom-vpn,
+#custom-ethernet,
+#custom-gateway,
+#custom-domain,
+#custom-target,
+#custom-target_sys,
+#custom-session {
     padding: 0 15px;
     background: transparent;
-    color: #E6FFF5;
 }
 
-#clock {
-    padding-right: 12px;
-}
+/* Colours straight out of i3-kitty's i3blocks.conf `color=` lines. */
 
-/* i3blocks [iface] color=#3BB92D */
-#custom-vpn.connected {
-    color: #3BB92D;
-}
+/* [vpn_status.sh]      color=#38DE07 */
+#custom-vpn        { color: #38DE07; }
+/* [ethernet_status.sh] color=#2495e7 */
+#custom-ethernet   { color: #2495e7; }
+/* [access_point.sh]    color=#2495e7 */
+#custom-gateway    { color: #2495e7; }
+/* [domain.sh]          color=#ff0000 */
+#custom-domain     { color: #ff0000; }
+/* [target_sys.sh]      color=#ff0000 */
+#custom-target_sys { color: #ff0000; }
+/* [target.sh]          color=#ff0000 */
+#custom-target     { color: #ff0000; }
+/* [session.sh]         color=#FFFF00 */
+#custom-session    { color: #FFFF00; }
 
-/* tun0 down: the block collapses, exactly like an empty i3blocks block */
-#custom-vpn.disconnected {
-    padding: 0;
-}
+/* [cpu_usage] [memory] [disk] [time]  color=#ffffff */
+#cpu,
+#memory,
+#disk,
+#clock { color: #ffffff; }
 
-#network.disconnected {
-    color: #900000;
-}
+#clock { padding-right: 12px; }
+#tray  { padding: 0 10px; }
 
-#tray {
-    padding: 0 10px;
-}
-
-#tray > .passive {
-    -gtk-icon-effect: dim;
-}
-
-#tray > .needs-attention {
-    -gtk-icon-effect: highlight;
-}
+#tray > .passive          { -gtk-icon-effect: dim; }
+#tray > .needs-attention  { -gtk-icon-effect: highlight; }

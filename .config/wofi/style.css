@@ -1,9 +1,15 @@
 /*
- * Wofi, dressed as kali-clean's Arc-Dark rofi.
+ * Wofi, dressed as i3-kitty's rofi (rofi/config.rasi, everforest palette).
  *
- * Same palette as the bar so the launcher and the status bar read as one
- * thing:  #1C1D2B ground, #282A3E rows, #82c8ff accent, #E6FFF5 text.
- * Hyprland blurs whatever sits behind it (see `layerrule = blur, wofi`).
+ *   bg0    #2B3339   window ground
+ *   bg1    #323D43   input bar
+ *   fg0    #D3C6AA   text
+ *   accent #A7C080   prompt, selection, match highlight
+ *   urgent #DBBC7F
+ *
+ * NOTE there is deliberately no blur behind this layer any more. Blurring
+ * a surface that repaints on every keystroke means recomputing the blur on
+ * every keystroke, which on llvmpipe is exactly what made SUPER+D stutter.
  */
 
 * {
@@ -13,10 +19,10 @@
 
 window {
     margin: 0;
-    background-color: rgba(28, 29, 43, 0.88);
-    border: 1px solid #00FF00;
+    background-color: rgba(43, 51, 57, 0.95);
+    border: 1px solid #A7C080;
     border-radius: 10px;
-    color: #E6FFF5;
+    color: #D3C6AA;
 }
 
 #outer-box {
@@ -31,13 +37,13 @@ window {
     padding: 8px 12px;
     border: 1px solid #333333;
     border-radius: 6px;
-    color: #E6FFF5;
-    background-color: rgba(40, 42, 62, 0.85);
-    caret-color: #82c8ff;
+    color: #D3C6AA;
+    background-color: rgba(50, 61, 67, 1.0);
+    caret-color: #A7C080;
 }
 
 #input:focus {
-    border-color: #82c8ff;
+    border-color: #A7C080;
 }
 
 #input image {
@@ -62,18 +68,18 @@ window {
 }
 
 #entry:selected {
-    background-color: rgba(130, 200, 255, 0.22);
+    background-color: rgba(167, 192, 128, 1.0);
     outline: none;
 }
 
 #entry:hover {
-    background-color: rgba(130, 200, 255, 0.12);
+    background-color: rgba(167, 192, 128, 0.25);
 }
 
 #text {
     margin: 0 4px;
     border: none;
-    color: #E6FFF5;
+    color: #D3C6AA;
 }
 
 #text:selected {
@@ -85,6 +91,6 @@ window {
 #unselected mark,
 #selected mark {
     background-color: transparent;
-    color: #82c8ff;
+    color: #A7C080;
     font-weight: bold;
 }

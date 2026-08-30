@@ -148,7 +148,7 @@ hl.monitor({
 
 local terminal    = "kitty"
 local fileManager = "thunar"
-local menu        = "wofi --show drun"
+local menu        = "~/.config/hypr/scripts/launcher.sh"
 
 -------------------
 ---- AUTOSTART ----
@@ -167,8 +167,19 @@ hl.on("hyprland.start", function()
     -- Whichever polkit agent this box actually shipped
     hl.exec_cmd("~/.config/hypr/scripts/polkit-agent.sh")
 
-    -- kali-clean's VM clipboard fix, unchanged
+    -- i3-kitty's VM clipboard fix, unchanged
     hl.exec_cmd("~/.config/i3/clipboard_fix.sh")
+
+    -- i3-kitty: exec --no-startup-id clipmenud
+    -- clipmenud is X11. cliphist is the Wayland store: wl-paste watches the
+    -- clipboard and pipes every change into it, and SUPER+C picks one back
+    -- out (see scripts/clipboard.sh). Harmless no-op if cliphist is absent.
+    hl.exec_cmd("command -v cliphist >/dev/null 2>&1 && wl-paste --type text --watch cliphist store")
+    hl.exec_cmd("command -v cliphist >/dev/null 2>&1 && wl-paste --type image --watch cliphist store")
+
+    -- i3-kitty: exec --no-startup-id vmware-user-suid-wrapper
+    -- Drives VMware guest clipboard sync and display resize.
+    hl.exec_cmd("command -v vmware-user-suid-wrapper >/dev/null 2>&1 && vmware-user-suid-wrapper")
 
     -- Hand the session environment to systemd/dbus so portals and tray work
     hl.exec_cmd("dbus-update-activation-environment --systemd WAYLAND_DISPLAY XDG_CURRENT_DESKTOP")
@@ -211,9 +222,12 @@ hl.env("WLR_NO_HARDWARE_CURSORS",  "1")
 
 hl.config({
     general = {
-        -- i3: `gaps inner 2` / `gaps outer 4`
-        gaps_in  = 2,
-        gaps_out = 4,
+        -- i3-kitty: `gaps inner 4` / `gaps outer 2`.
+        -- Note this is the other way round from kali-clean, which had
+        -- inner 2 / outer 4: more space between windows, less around the
+        -- edge of the screen.
+        gaps_in  = 4,
+        gaps_out = 2,
 
         -- 1px: as thin as Hyprland will draw and still show a colour.
         -- (0 removes the border entirely, along with the focus indicator
@@ -512,9 +526,20 @@ hl.window_rule({
 ---------------------
 -- Blur behind the bar, the launcher and notifications.
 
+-- waybar repaints about once a second and is otherwise static, so
+-- new_optimizations caches its blur and it costs essentially nothing.
 hl.layer_rule({ name = "blur-waybar",        match = { namespace = "waybar" },        blur = true, ignore_alpha = 0.0 })
-hl.layer_rule({ name = "blur-wofi",          match = { namespace = "wofi" },          blur = true, ignore_alpha = 0.0 })
 hl.layer_rule({ name = "blur-notifications", match = { namespace = "notifications" }, blur = true, ignore_alpha = 0.0 })
+
+-- NO BLUR ON THE LAUNCHER. This is half of the "SUPER+D stutters when I
+-- type" fix. A launcher repaints its whole surface on every keystroke as
+-- the result list changes, and a blurred surface has to have its blur
+-- recomputed on every one of those repaints -- new_optimizations cannot
+-- cache anything that keeps changing. On llvmpipe that is a full-surface
+-- gaussian per keypress, which is exactly where the dropped keystrokes
+-- came from. The other half is the launcher itself: see launcher.sh.
+hl.layer_rule({ name = "noblur-fuzzel", match = { namespace = "launcher" }, blur = false })
+hl.layer_rule({ name = "noblur-wofi",   match = { namespace = "wofi" },     blur = false })
 
 ---------------------
 ---- KEYBINDINGS ----
@@ -555,14 +580,17 @@ hl.bind(mainMod .. " + D",              hl.dsp.exec_cmd(menu))
 hl.bind(mainMod .. " + SHIFT + Return", hl.dsp.exec_cmd(fileManager))
 
 -- --- Focus -----------------------------------------------------------------
--- i3 uses the shifted-by-one vim row: j=left k=down l=up semicolon=right.
--- `ntilde` is bound alongside `semicolon` because on a Spanish layout that
--- is the physical key sitting where a US keyboard puts `;`.
-hl.bind(mainMod .. " + J",         hl.dsp.focus({ direction = "left"  }))
-hl.bind(mainMod .. " + K",         hl.dsp.focus({ direction = "down"  }))
-hl.bind(mainMod .. " + L",         hl.dsp.focus({ direction = "up"    }))
-hl.bind(mainMod .. " + semicolon", hl.dsp.focus({ direction = "right" }))
-hl.bind(mainMod .. " + ntilde",    hl.dsp.focus({ direction = "right" }))
+-- i3-kitty uses j = left, k = down, i = up, o = right.
+--
+-- NOT the kali-clean j/k/l/semicolon row: this repo moved `up` and `right`
+-- onto i and o, which sit directly above k and l on the keyboard and need
+-- no Spanish-layout special case for `;`. kitty's own
+-- ctrl+j/k/i/o neighboring_window binds match, so moving between kitty
+-- splits and between Hyprland windows uses the same four keys.
+hl.bind(mainMod .. " + J", hl.dsp.focus({ direction = "left"  }))
+hl.bind(mainMod .. " + K", hl.dsp.focus({ direction = "down"  }))
+hl.bind(mainMod .. " + I", hl.dsp.focus({ direction = "up"    }))
+hl.bind(mainMod .. " + O", hl.dsp.focus({ direction = "right" }))
 
 hl.bind(mainMod .. " + left",  hl.dsp.focus({ direction = "left"  }))
 hl.bind(mainMod .. " + down",  hl.dsp.focus({ direction = "down"  }))
@@ -570,11 +598,10 @@ hl.bind(mainMod .. " + up",    hl.dsp.focus({ direction = "up"    }))
 hl.bind(mainMod .. " + right", hl.dsp.focus({ direction = "right" }))
 
 -- --- Moving windows --------------------------------------------------------
-hl.bind(mainMod .. " + SHIFT + J",         hl.dsp.window.move({ direction = "left"  }))
-hl.bind(mainMod .. " + SHIFT + K",         hl.dsp.window.move({ direction = "down"  }))
-hl.bind(mainMod .. " + SHIFT + L",         hl.dsp.window.move({ direction = "up"    }))
-hl.bind(mainMod .. " + SHIFT + semicolon", hl.dsp.window.move({ direction = "right" }))
-hl.bind(mainMod .. " + SHIFT + ntilde",    hl.dsp.window.move({ direction = "right" }))
+hl.bind(mainMod .. " + SHIFT + J", hl.dsp.window.move({ direction = "left"  }))
+hl.bind(mainMod .. " + SHIFT + K", hl.dsp.window.move({ direction = "down"  }))
+hl.bind(mainMod .. " + SHIFT + I", hl.dsp.window.move({ direction = "up"    }))
+hl.bind(mainMod .. " + SHIFT + O", hl.dsp.window.move({ direction = "right" }))
 
 hl.bind(mainMod .. " + SHIFT + left",  hl.dsp.window.move({ direction = "left"  }))
 hl.bind(mainMod .. " + SHIFT + down",  hl.dsp.window.move({ direction = "down"  }))
@@ -622,9 +649,19 @@ hl.bind(mainMod .. " + space",         hl.dsp.window.cycle_next({ floating = tru
 -- direction, monitor, window, urgent_or_last, last".
 hl.bind(mainMod .. " + A", hl.dsp.focus({ last = true }))
 
--- Extra dwindle niceties
-hl.bind(mainMod .. " + P", hl.dsp.window.pseudo())
-hl.bind(mainMod .. " + C", hl.dsp.window.center())
+-- i3-kitty: bindsym $mod+c exec --no-startup-id clipmenu
+-- clipmenu is X11-only; cliphist is the Wayland equivalent.
+hl.bind(mainMod .. " + C", hl.dsp.exec_cmd("~/.config/hypr/scripts/clipboard.sh"))
+
+-- i3-kitty: bindsym $mod+n  rename the focused workspace (was i3-input)
+hl.bind(mainMod .. " + N", hl.dsp.exec_cmd("~/.config/hypr/scripts/workspace-rename.sh"))
+-- i3-kitty: bindsym $mod+b  clear the name, back to the bare number
+hl.bind(mainMod .. " + B", hl.dsp.exec_cmd("~/.config/hypr/scripts/workspace-clear.sh"))
+
+-- Extra dwindle niceties. Centre moved off SUPER+C, which i3-kitty uses
+-- for the clipboard.
+hl.bind(mainMod .. " + P",              hl.dsp.window.pseudo())
+hl.bind(mainMod .. " + SHIFT + Comma",  hl.dsp.window.center())
 
 -- --- Workspaces ------------------------------------------------------------
 for i = 1, 10 do
@@ -661,11 +698,32 @@ hl.bind("XF86AudioLowerVolume", hl.dsp.exec_cmd("wpctl set-volume @DEFAULT_AUDIO
 hl.bind("XF86AudioMute",        hl.dsp.exec_cmd("wpctl set-mute @DEFAULT_AUDIO_SINK@ toggle"),     { locked = true, repeating = true })
 hl.bind("XF86AudioMicMute",     hl.dsp.exec_cmd("wpctl set-mute @DEFAULT_AUDIO_SOURCE@ toggle"),   { locked = true, repeating = true })
 
--- --- i3's direct resize bindings, outside the mode -------------------------
-hl.bind(mainMod .. " + CTRL + SHIFT + right", hl.dsp.window.resize({ x = -20, y = 0,   relative = true }), { repeating = true })
+-- --- Resize outside the mode ----------------------------------------------
+-- i3-kitty has two sets: CTRL for fine 1px nudges, CTRL+SHIFT for 20px
+-- steps, each on both j/i/k/o and the arrow keys.
+--
+-- i3's `resize shrink width` shrinks from the right edge, so the sign
+-- convention below matches: j/left shrink width, o/right grow width.
+
+-- fine: 1px
+hl.bind(mainMod .. " + CTRL + J",     hl.dsp.window.resize({ x = -1, y = 0,  relative = true }), { repeating = true })
+hl.bind(mainMod .. " + CTRL + I",     hl.dsp.window.resize({ x = 0,  y = 1,  relative = true }), { repeating = true })
+hl.bind(mainMod .. " + CTRL + K",     hl.dsp.window.resize({ x = 0,  y = -1, relative = true }), { repeating = true })
+hl.bind(mainMod .. " + CTRL + O",     hl.dsp.window.resize({ x = 1,  y = 0,  relative = true }), { repeating = true })
+hl.bind(mainMod .. " + CTRL + left",  hl.dsp.window.resize({ x = -1, y = 0,  relative = true }), { repeating = true })
+hl.bind(mainMod .. " + CTRL + up",    hl.dsp.window.resize({ x = 0,  y = 1,  relative = true }), { repeating = true })
+hl.bind(mainMod .. " + CTRL + down",  hl.dsp.window.resize({ x = 0,  y = -1, relative = true }), { repeating = true })
+hl.bind(mainMod .. " + CTRL + right", hl.dsp.window.resize({ x = 1,  y = 0,  relative = true }), { repeating = true })
+
+-- coarse: 20px
+hl.bind(mainMod .. " + CTRL + SHIFT + J",     hl.dsp.window.resize({ x = -20, y = 0,   relative = true }), { repeating = true })
+hl.bind(mainMod .. " + CTRL + SHIFT + I",     hl.dsp.window.resize({ x = 0,   y = 20,  relative = true }), { repeating = true })
+hl.bind(mainMod .. " + CTRL + SHIFT + K",     hl.dsp.window.resize({ x = 0,   y = -20, relative = true }), { repeating = true })
+hl.bind(mainMod .. " + CTRL + SHIFT + O",     hl.dsp.window.resize({ x = 20,  y = 0,   relative = true }), { repeating = true })
+hl.bind(mainMod .. " + CTRL + SHIFT + left",  hl.dsp.window.resize({ x = -20, y = 0,   relative = true }), { repeating = true })
 hl.bind(mainMod .. " + CTRL + SHIFT + up",    hl.dsp.window.resize({ x = 0,   y = 20,  relative = true }), { repeating = true })
 hl.bind(mainMod .. " + CTRL + SHIFT + down",  hl.dsp.window.resize({ x = 0,   y = -20, relative = true }), { repeating = true })
-hl.bind(mainMod .. " + CTRL + SHIFT + left",  hl.dsp.window.resize({ x = 20,  y = 0,   relative = true }), { repeating = true })
+hl.bind(mainMod .. " + CTRL + SHIFT + right", hl.dsp.window.resize({ x = 20,  y = 0,   relative = true }), { repeating = true })
 
 -----------------------------------------------------------------------------
 -- RESIZE MODE -- i3's `mode "resize"`, entered with SUPER+R
@@ -674,17 +732,17 @@ hl.bind(mainMod .. " + CTRL + SHIFT + left",  hl.dsp.window.resize({ x = 20,  y 
 hl.bind(mainMod .. " + R", hl.dsp.submap("resize"))
 
 hl.define_submap("resize", function()
-    -- i3: j shrink width / k grow height / l shrink height / semicolon grow width
-    hl.bind("J",         hl.dsp.window.resize({ x = -20, y = 0,   relative = true }), { repeating = true })
-    hl.bind("K",         hl.dsp.window.resize({ x = 0,   y = 20,  relative = true }), { repeating = true })
-    hl.bind("L",         hl.dsp.window.resize({ x = 0,   y = -20, relative = true }), { repeating = true })
-    hl.bind("semicolon", hl.dsp.window.resize({ x = 20,  y = 0,   relative = true }), { repeating = true })
-    hl.bind("ntilde",    hl.dsp.window.resize({ x = 20,  y = 0,   relative = true }), { repeating = true })
+    -- i3-kitty's resize mode: j shrink width / i grow height /
+    -- k shrink height / o grow width, all 20px.
+    hl.bind("J", hl.dsp.window.resize({ x = -20, y = 0,   relative = true }), { repeating = true })
+    hl.bind("I", hl.dsp.window.resize({ x = 0,   y = 20,  relative = true }), { repeating = true })
+    hl.bind("K", hl.dsp.window.resize({ x = 0,   y = -20, relative = true }), { repeating = true })
+    hl.bind("O", hl.dsp.window.resize({ x = 20,  y = 0,   relative = true }), { repeating = true })
 
-    -- i3: Left shrink width / Down grow height / Up shrink height / Right grow width
+    -- and the same on the arrows
     hl.bind("left",  hl.dsp.window.resize({ x = -20, y = 0,   relative = true }), { repeating = true })
-    hl.bind("down",  hl.dsp.window.resize({ x = 0,   y = 20,  relative = true }), { repeating = true })
-    hl.bind("up",    hl.dsp.window.resize({ x = 0,   y = -20, relative = true }), { repeating = true })
+    hl.bind("up",    hl.dsp.window.resize({ x = 0,   y = 20,  relative = true }), { repeating = true })
+    hl.bind("down",  hl.dsp.window.resize({ x = 0,   y = -20, relative = true }), { repeating = true })
     hl.bind("right", hl.dsp.window.resize({ x = 20,  y = 0,   relative = true }), { repeating = true })
 
     -- i3: Return or Escape go back to "default"

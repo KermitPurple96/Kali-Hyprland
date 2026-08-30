@@ -1,8 +1,13 @@
-// Waybar standing in for kali-clean's i3bar + i3blocks.
+// Waybar standing in for i3-kitty's i3bar + i3blocks.
 //
-// Geometry comes from the i3 `bar {}` block (top, height 26, RobotoMono 7.5)
-// and the modules are a one-for-one port of ~/.config/i3/i3blocks.conf,
-// down to the same Nerd Font glyphs.
+// Geometry comes from the i3 `bar {}` block (top, height 26, Hack Nerd Font
+// 7.5) and the modules are a one-for-one port of i3/i3blocks.conf -- same
+// order, same Nerd Font glyphs, same colours, including the pentest blocks
+// that read ~/.config/bin/*.txt.
+//
+// i3blocks order was:
+//   vpn_status, ethernet_status, access_point, domain, target_sys, target,
+//   session, cpu_usage, memory, disk, time
 {
     "layer": "top",
     "position": "top",
@@ -12,91 +17,134 @@
     "modules-left": ["hyprland/workspaces", "hyprland/submap"],
     "modules-center": ["hyprland/window"],
     "modules-right": [
-        "cpu",              // i3blocks [cpu_usage]
-        "memory",           // i3blocks [memory]
-        "disk",             // i3blocks [disk]
-        "network",          // i3blocks [bandwidth]
-        "custom/vpn",       // i3blocks [iface] instance=tun0
+        "custom/vpn",         // i3blocks [vpn_status.sh]
+        "custom/ethernet",    // i3blocks [ethernet_status.sh]
+        "custom/gateway",     // i3blocks [access_point.sh]
+        "custom/domain",      // i3blocks [domain.sh]
+        "custom/target_sys",  // i3blocks [target_sys.sh]
+        "custom/target",      // i3blocks [target.sh]
+        "custom/session",     // i3blocks [session.sh]
+        "cpu",                // i3blocks [cpu_usage]
+        "memory",             // i3blocks [memory]
+        "disk",               // i3blocks [disk]
         "tray",
-        "clock"             // i3blocks [time]
+        "clock"               // i3blocks [time]
     ],
 
+    // i3-kitty ran i3-workspace-names-daemon with i3/app-icons.json to put
+    // an app glyph next to each workspace number. waybar does that itself
+    // with window-rewrite, so the daemon is not needed -- the rules below
+    // are app-icons.json translated into waybar's syntax.
     "hyprland/workspaces": {
         "disable-scroll": false,
         "all-outputs": true,
-        "format": "{name}"
+        "format": "{name} {windows}",
+        "format-window-separator": " ",
+        "window-rewrite-default": "",
+        "window-rewrite": {
+            "class<kitty>": "",
+            "class<firefox>": "",
+            "class<chromium>": "",
+            "class<google-chrome>": "",
+            "class<thunderbird>": "",
+            "class<thunar>": "",
+            "class<code>": "",
+            "class<sublime_text>": "",
+            "class<vlc>": "",
+            "class<Burp.*>": "",
+            "class<jetbrains-idea-ce>": ""
+        }
     },
 
-    // i3bar's mode indicator — lights up in the SUPER+R resize submap
-    "hyprland/submap": {
-        "format": "  {}  ",
-        "tooltip": false
-    },
+    // i3bar's mode indicator -- lights up in the SUPER+R resize submap
+    "hyprland/submap": { "format": "  {}  ", "tooltip": false },
 
     "hyprland/window": {
         "format": "{}",
-        "max-length": 60,
+        "max-length": 45,
         "separate-outputs": true
     },
 
-    // [cpu_usage] — label=" CPU", interval=5
-    "cpu": {
+    // [vpn_status.sh] label=󱎔 color=#38DE07 interval=5
+    "custom/vpn": {
         "interval": 5,
-        "format": " CPU {usage}%",
+        "exec": "$HOME/.config/waybar/scripts/vpn.sh",
+        "format": "󱎔 {}",
         "tooltip": false
     },
 
-    // [memory] — label=" RAM", interval=10
+    // [ethernet_status.sh] label= color=#2495e7 interval=5
+    "custom/ethernet": {
+        "interval": 5,
+        "exec": "$HOME/.config/waybar/scripts/ethernet.sh",
+        "format": " {}",
+        "tooltip": false
+    },
+
+    // [access_point.sh] label=泌 color=#2495e7 interval=5
+    "custom/gateway": {
+        "interval": 5,
+        "exec": "$HOME/.config/waybar/scripts/gateway.sh",
+        "format": "泌 {}",
+        "tooltip": false
+    },
+
+    // [domain.sh] color=#ff0000 interval=5
+    "custom/domain": {
+        "interval": 5,
+        "exec": "$HOME/.config/waybar/scripts/domain.sh",
+        "format": "{}",
+        "tooltip": false
+    },
+
+    // [target_sys.sh] color=#ff0000 interval=5
+    "custom/target_sys": {
+        "interval": 5,
+        "exec": "$HOME/.config/waybar/scripts/target_sys.sh",
+        "format": "{}",
+        "tooltip": false
+    },
+
+    // [target.sh] label=什 color=#ff0000 interval=5
+    "custom/target": {
+        "interval": 5,
+        "exec": "$HOME/.config/waybar/scripts/target.sh",
+        "format": "什 {}",
+        "tooltip": false
+    },
+
+    // [session.sh] label=  color=#FFFF00 interval=5
+    "custom/session": {
+        "interval": 5,
+        "exec": "$HOME/.config/waybar/scripts/session.sh",
+        "format": " {}",
+        "tooltip": false
+    },
+
+    // [cpu_usage] label= CPU interval=5
+    "cpu": { "interval": 5, "format": " CPU {usage}%", "tooltip": false },
+
+    // [memory] label= RAM interval=10
     "memory": {
         "interval": 10,
-        "format": " RAM {percentage}%",
+        "format": " RAM {percentage}%",
         "tooltip-format": "{used:0.1f}G used of {total:0.1f}G"
     },
 
-    // [disk] — label=" Disk", interval=240
+    // [disk] label= Disk interval=240
     "disk": {
         "interval": 240,
         "path": "/",
-        "format": " Disk {free}",
+        "format": " Disk {free}",
         "tooltip-format": "{used} used of {total} on {path}"
     },
 
-    // [bandwidth] — label="", interval=5
-    "network": {
-        "interval": 5,
-        "format": " {bandwidthDownBits} {bandwidthUpBits}",
-        "format-disconnected": " down",
-        "tooltip-format": "{ifname}  {ipaddr}/{cidr}"
-    },
+    "tray": { "icon-size": 16, "spacing": 8 },
 
-    // [iface] instance=tun0 — label="", color=#3BB92D
-    "custom/vpn": {
-        "interval": 10,
-        "exec": "~/.config/waybar/scripts/vpn.sh",
-        "return-type": "json",
-        "tooltip": true
-    },
-
-    "tray": {
-        "icon-size": 16,
-        "spacing": 8
-    },
-
-    // [time] — command=date '+%A, %d %B %Y %H:%M:%S ', interval=1
+    // [time] command=date '+%A, %d %B %Y %H:%M:%S ' interval=1
     "clock": {
         "interval": 1,
-        "format": " {:%A, %d %B %Y %H:%M:%S}",
+        "format": " {:%A, %d %B %Y %H:%M:%S}",
         "tooltip-format": "<big>{:%Y %B}</big>\n<tt><small>{calendar}</small></tt>"
     }
-
-    // kali-clean's i3blocks keeps [battery] and [temperature] commented out,
-    // so they are left out here too. To bring the battery back, add "battery"
-    // to modules-right and uncomment:
-    //
-    // "battery": {
-    //     "states": { "warning": 30, "critical": 15 },
-    //     "format": "{icon} {capacity}%",
-    //     "format-charging": " {capacity}%",
-    //     "format-icons": ["", "", "", "", ""]
-    // }
 }

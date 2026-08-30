@@ -1,29 +1,41 @@
-# Wofi standing in for kali-clean's `rofi -show run`.
+# Wofi -- the FALLBACK launcher (SUPER+D prefers fuzzel; see
+# ~/.config/hypr/scripts/launcher.sh).
 #
-# The geometry mirrors ~/.config/rofi/config: a 3-column, 15-line grid with
-# no scrollbar and case-insensitive matching. The colours live in style.css.
-
+# Geometry now mirrors i3-kitty's rofi/config.rasi rather than kali-clean's
+# old rofi config:  window width 480, listview lines 8, columns 1.
+#
+# That is also the performance fix. The previous settings asked for a
+# 3-column, 15-line grid -- 45 entries laid out and repainted on every
+# keystroke -- and `matching=fuzzy`, which rescores all ~345 desktop
+# entries each time. On llvmpipe that is what made typing stutter.
 show=drun
 prompt=Search
-width=800
-height=440
+width=480
 location=center
 orientation=vertical
 halign=fill
 content_halign=fill
 
-# rofi.columns: 3 / rofi.lines: 15
-columns=3
-lines=15
+# rofi/config.rasi: listview { lines: 8; columns: 1; }
+columns=1
+lines=8
 
-# rofi.hide-scrollbar: true / rofi.fuzzy: true
 hide_scroll=true
 insensitive=true
-matching=fuzzy
+
+# `contains` instead of `fuzzy`: a substring test per entry rather than a
+# fuzzy score per entry. Noticeably faster on a CPU renderer, and for
+# launching apps by name the difference in results is small. fuzzel (the
+# preferred launcher) does keep fuzzy matching -- it can afford it.
+matching=contains
+
+# Both of these cost per-entry work on every redraw:
+#   allow_markup -- runs every label through the pango markup parser
+#   allow_images -- decodes and scales an icon per row
+allow_markup=false
+allow_images=false
 
 no_actions=true
-allow_markup=true
-allow_images=false
 term=kitty
 gtk_dark=true
 key_expand=Tab
