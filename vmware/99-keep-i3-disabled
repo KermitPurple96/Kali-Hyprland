@@ -1,0 +1,7 @@
+// i3 is deliberately not offered at the greeter on this VM.
+//
+// The body MUST NOT be an inline shell loop: APT's config parser mangles
+// backslash escapes, which silently broke this hook and made every apt
+// operation exit non-zero. See /usr/local/sbin/keep-i3-disabled for the
+// full explanation. Keep this a single command with no quoting.
+DPkg::Post-Invoke { "test -x /usr/local/sbin/keep-i3-disabled && /usr/local/sbin/keep-i3-disabled || true"; };

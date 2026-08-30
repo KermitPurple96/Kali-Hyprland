@@ -246,6 +246,42 @@ Four things `config.sh` did that `tools.sh` deliberately does not:
 | `docker-compose up` (BloodHound) | runs in the foreground and blocks everything after it — the command is printed instead |
 | `upx brute .../fastTCPScan` | not a valid `upx` invocation (the flag is `--brute`) and `upx` was never installed, so that build silently failed. `tools.sh` just builds it |
 
+### The i3 greeter hook (`99-keep-i3-disabled`)
+
+`vmware/update-system.sh` installs an APT hook that keeps i3's session
+entries out of the login screen — the i3 package reinstates them on every
+upgrade.
+
+It is a **script** (`/usr/local/sbin/keep-i3-disabled`) called by a
+one-line hook, and that is deliberate. Inlining the loop in `apt.conf.d`
+does not work: APT's config parser does not unescape `\"` into a quote the
+way a shell does. `apt-config dump` shows what it really passes to `sh`:
+
+```
+for f in ...; do [ -f \$f\ ] && mv \$f\ \$f.disabled\; done; true
+```
+
+Every `\"` became a bare backslash, so the `;` before `done` ended up
+escaped, `done` became an argument to `mv`, and the loop was never
+terminated:
+
+```
+sh: 1: Syntax error: end of file unexpected (expecting "done")
+Error: Problem executing scripts DPkg::Post-Invoke
+Error: Sub-process returned an error code
+```
+
+Installs still completed, but **every apt operation exited non-zero** — so
+any script running apt under `set -e`, including `tools.sh` and
+`install.sh`, would abort partway through.
+
+To stop hiding i3 and pick it at the greeter again:
+
+```bash
+sudo rm /etc/apt/apt.conf.d/99-keep-i3-disabled
+sudo /usr/local/sbin/keep-i3-disabled --restore
+```
+
 ### Unattended installation
 
 Every prompt has a flag, so the whole desktop can go on in one command with

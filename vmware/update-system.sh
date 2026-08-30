@@ -25,7 +25,7 @@ if [ "$EUID" -eq 0 ]; then
     exit 1
 fi
 
-echo "==> 1/4 swaybg"
+echo "==> 1/5 swaybg"
 if command -v swaybg >/dev/null 2>&1; then
     echo "    already installed"
 else
@@ -41,16 +41,28 @@ else
     fi
 fi
 
-echo "==> 2/4 session launcher -> /usr/local/bin/start-hyprland-vmware"
+echo "==> 2/5 session launcher -> /usr/local/bin/start-hyprland-vmware"
 sudo install -m 755 "$HERE/start-hyprland-vmware" /usr/local/bin/start-hyprland-vmware
 
-echo "==> 3/4 session entries -> /usr/share/wayland-sessions/"
+echo "==> 3/5 session entries -> /usr/share/wayland-sessions/"
 for entry in hyprland hyprland-lite hyprland-test hyprland-diag; do
     sudo install -m 644 "$HERE/$entry.desktop" "/usr/share/wayland-sessions/$entry.desktop"
     echo "    $entry.desktop"
 done
 
-echo "==> 4/4 removing the broken uwsm entry"
+echo "==> 4/5 apt hook that keeps i3 out of the greeter"
+# This used to be an inline shell loop in apt.conf.d, and APT's config
+# parser mangled its backslash escapes -- the `;` before `done` came out
+# escaped, so sh reported "end of file unexpected (expecting done)" and
+# EVERY apt operation exited non-zero. Installs still finished, but any
+# script running apt under `set -e` would abort. The logic now lives in a
+# real script and the hook is a single unquoted command.
+sudo install -m 755 "$HERE/keep-i3-disabled" /usr/local/sbin/keep-i3-disabled
+sudo install -m 644 "$HERE/99-keep-i3-disabled" /etc/apt/apt.conf.d/99-keep-i3-disabled
+echo "    installed (undo: sudo rm /etc/apt/apt.conf.d/99-keep-i3-disabled &&"
+echo "                     sudo /usr/local/sbin/keep-i3-disabled --restore)"
+
+echo "==> 5/5 removing the broken uwsm entry"
 # uwsm is not packaged in Kali, so "Hyprland (uwsm-managed)" can never
 # start -- picking it drops you straight back at the greeter. The Hyprland
 # package reinstalls it, so this may need running again after an upgrade.
