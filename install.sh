@@ -421,6 +421,24 @@ if [ "$INSTALL_HYPRLAND" = true ]; then
     chmod +x "$HOME"/.config/hypr/scripts/*.sh   2>/dev/null || true
     chmod +x "$HOME"/.config/waybar/scripts/*.sh 2>/dev/null || true
 
+    # Firefox launcher override.
+    #
+    # Firefox is single-instance per profile and finds the running copy over
+    # D-Bus. Kali uses dbus-user-session, which is ONE bus per user rather
+    # than per login session, so a Firefox already running on an X11 session
+    # is reachable from the Hyprland one -- and launching it here just makes
+    # a window appear over there instead. This user-level .desktop shadows
+    # the system entry so the launcher goes through scripts/firefox.sh,
+    # which detects that case. Remove the file to undo.
+    mkdir -p "$HOME/.local/share/applications"
+    if [ -f "$REPO/.local/share/applications/firefox-esr.desktop" ]; then
+        sed "s#/home/kermit/#$HOME/#g" \
+            "$REPO/.local/share/applications/firefox-esr.desktop" \
+            > "$HOME/.local/share/applications/firefox-esr.desktop"
+        update-desktop-database "$HOME/.local/share/applications" 2>/dev/null || true
+        ok "Firefox launcher override installed"
+    fi
+
     # The Hyprland config reuses kali-clean's VM clipboard fix.
     mkdir -p "$HOME/.config/i3"
     cp -n "$REPO/.config/i3/clipboard_fix.sh" "$HOME/.config/i3/" 2>/dev/null || true

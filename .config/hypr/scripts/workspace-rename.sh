@@ -14,7 +14,9 @@ set -eu
 id=$(hyprctl -j activeworkspace 2>/dev/null | jq -r '.id // empty')
 [ -n "$id" ] || { echo "could not determine the active workspace" >&2; exit 1; }
 
-name=$(printf '' | "$(dirname "$0")/dmenu.sh" "Rename workspace $id to:")
+# --input: free-text entry, no list. Piping an empty stdin here is what
+# broke this before -- see the header of dmenu.sh.
+name=$("$(dirname "$0")/dmenu.sh" --input "Rename workspace $id to:")
 [ -n "$name" ] || exit 0
 
 # 0.56 takes a Lua expression; keep the legacy string form as a fallback.
