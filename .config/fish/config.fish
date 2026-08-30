@@ -268,8 +268,22 @@ function ipn
     echo $name
 end
 
+# Copy stdin to the clipboard.
+#
+# CHANGED for Wayland. `xclip -sel clip` talks to an X server; under
+# Hyprland there isn't one, only XWayland. Hyprland does bridge the two
+# clipboards, so xclip mostly still works -- but only while XWayland is
+# running, and it loses the selection when the last X client exits, which
+# is a confusing way to lose a copied hash. wl-copy talks to the Wayland
+# clipboard directly.
+#
+# Falls back to xclip so this same config still works on the i3 session.
 function xp
-    xclip -sel clip
+    if set -q WAYLAND_DISPLAY; and command -q wl-copy
+        wl-copy
+    else
+        xclip -sel clip
+    end
 end
 
 function hexen
@@ -873,7 +887,7 @@ function ports
     set green (set_color green)
     set endcolor (set_color normal)
 
-    echo "nmap -sCV -p $ports $ip_address -n -vvv -oN SCV_$ip_address.txt" | tr -d '\n' | xclip -sel clip
+    echo "nmap -sCV -p $ports $ip_address -n -vvv -oN SCV_$ip_address.txt" | tr -d '\n' | xp
 
     gum style --foreground "#FF0000" --border-foreground "#00FF00" --border rounded --align center --width 20 --margin "1 1 1 8" --padding "1 0" "IP: $ip_address"
     echo -e "\t$red [*]$endcolor Open ports: $green $ports$endcolor \n" >extractPorts.tmp

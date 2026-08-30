@@ -153,14 +153,15 @@ fi
 # --------------------------------------------------------- common packages --
 # Everything kali-clean installs that is not specific to X11 or to Wayland.
 hdr "Installing common tools"
+# NOTE what is deliberately NOT here: flameshot, feh, lxappearance and
+# unclutter. All four are X11-only and Hyprland replaces every one of them
+# (grim+slurp, swaybg, nwg-look, cursor:inactive_timeout), so they moved
+# into the i3 branch below. A --hyprland install now pulls no X11 desktop
+# tooling it cannot use. See ./tools.sh --voided for the full accounting.
 apt_install \
-    flameshot \
-    feh \
-    lxappearance \
     arc-theme \
     papirus-icon-theme \
     imagemagick \
-    unclutter \
     python3-pip \
     pipx \
     thunar \
@@ -276,6 +277,11 @@ if [ "$INSTALL_I3" = true ]; then
     # 4.22 -- Kali ships 4.25 with src/gaps.c compiled in -- so the whole
     # meson/ninja build kali-clean did, and the ~25 -dev packages it needed,
     # are gone. `gaps inner 2` in the config just works.
+    # These four are X11-only and belong to the i3 session alone:
+    #   feh          ~/.fehbg wallpaper (cannot paint a Wayland root window)
+    #   flameshot    $mod+P screenshot (Hyprland uses grim + slurp)
+    #   lxappearance GTK theming        (Hyprland uses nwg-look)
+    #   unclutter    hide the pointer   (Hyprland: cursor:inactive_timeout)
     apt_install \
         i3 \
         i3-wm \
@@ -285,14 +291,12 @@ if [ "$INSTALL_I3" = true ]; then
         arandr \
         compton \
         picom \
-        alacritty \
-        xclip
-
-    # kali-clean fetched a Debian bullseye .deb for Alacritty because there
-    # was no package at the time. Kali packages it now (0.16.x), so that
-    # download is gone too. If apt somehow had none, say so rather than
-    # silently leaving a config for a missing terminal.
-    command -v alacritty >/dev/null 2>&1 || warn "alacritty is not installed; SUPER+Return in i3 will fail"
+        xclip \
+        feh \
+        flameshot \
+        lxappearance \
+        unclutter \
+        fonts-font-awesome
 
     hdr "Deploying i3 configuration"
     for d in i3 compton rofi; do backup_and_make "$d"; done

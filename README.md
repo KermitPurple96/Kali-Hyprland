@@ -208,6 +208,44 @@ The installer will ask you which setup you want:
 2. **i3** - Classic X11 setup
 3. **Both** - Install both, choose at login
 
+### Tools: `./tools.sh`
+
+`install.sh` sets up the desktop. `tools.sh` puts the tooling on — it is
+i3-kitty's `config.sh`, reworked for a Hyprland box:
+
+```bash
+./tools.sh                 # everything
+./tools.sh --apt           # distro packages only
+./tools.sh --python        # pipx / uv
+./tools.sh --go --rust --npm
+./tools.sh --bin           # release binaries (lsd, bat, rustscan, kerbrute, ...)
+./tools.sh --git           # ~/dev checkouts and personal scripts
+./tools.sh --dry-run       # print what would happen, change nothing
+./tools.sh --voided        # what was dropped for the Hyprland desktop, and why
+```
+
+Every step checks for what it installs first, so it is safe to re-run.
+
+**What is dropped.** `config.sh` names 141 apt packages; 41 of them exist
+only to support an X11 i3 desktop and are not installed on a Hyprland-only
+setup — `i3`/`i3blocks`/`i3status`, `compton`, `rofi`/`dmenu`,
+`xsel`/`xdotool`, `unclutter`, `arandr`, `lxappearance`, `flameshot`,
+`feh`, `fonts-font-awesome`, `snapd`, plus the whole i3-gaps build chain
+(`meson`, `ninja-build`, `autoconf` and ~25 `libxcb-*-dev` packages) for a
+compile that upstream i3 made unnecessary back in 4.22. Pick the i3 session
+in `install.sh` and they all come back — they live in that branch now.
+
+**No security tool was cut.** Everything offensive in `config.sh` is kept.
+
+Four things `config.sh` did that `tools.sh` deliberately does not:
+
+| `config.sh` | why not |
+|---|---|
+| `reboot` at the end | a tool installer should not reboot your box |
+| `chsh -s /usr/bin/fish` | changing your login shell prompts for a password; run it yourself |
+| `docker-compose up` (BloodHound) | runs in the foreground and blocks everything after it — the command is printed instead |
+| `upx brute .../fastTCPScan` | not a valid `upx` invocation (the flag is `--brute`) and `upx` was never installed, so that build silently failed. `tools.sh` just builds it |
+
 ### Unattended installation
 
 Every prompt has a flag, so the whole desktop can go on in one command with
