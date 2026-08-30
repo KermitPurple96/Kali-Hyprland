@@ -321,7 +321,7 @@ Beyond what `install.sh` already covers:
 
 ```
 hyprland xdg-desktop-portal-hyprland xwayland
-waybar wofi dunst kitty thunar
+waybar wofi dunst kitty nemo
 grim slurp wl-clipboard swaylock swayidle
 mate-polkit wireplumber
 ```

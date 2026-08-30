@@ -20,7 +20,7 @@ echo "==> 1/5 packages"
 sudo apt update
 sudo apt install -y \
     hyprland xdg-desktop-portal-hyprland xwayland \
-    waybar wofi dunst kitty thunar \
+    waybar wofi dunst kitty nemo nemo-fileroller gvfs-backends gvfs-fuse \
     grim slurp wl-clipboard swaybg swaylock swayidle \
     mate-polkit wireplumber network-manager-gnome \
     fonts-hack papirus-icon-theme

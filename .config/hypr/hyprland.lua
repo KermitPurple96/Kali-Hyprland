@@ -147,7 +147,7 @@ hl.monitor({
 ---------------------
 
 local terminal    = "kitty"
-local fileManager = "thunar"
+local fileManager = "nemo"
 local menu        = "~/.config/hypr/scripts/launcher.sh"
 
 -------------------
@@ -209,7 +209,7 @@ end)
 
 hl.env("XCURSOR_SIZE",       "24")
 hl.env("HYPRCURSOR_SIZE",    "24")
-hl.env("XCURSOR_THEME",      "Adwaita")
+hl.env("XCURSOR_THEME",      "Dracula-cursors")
 hl.env("QT_QPA_PLATFORM",    "wayland;xcb")
 hl.env("QT_QPA_PLATFORMTHEME", "qt6ct")
 hl.env("QT_WAYLAND_DISABLE_WINDOWDECORATION", "1")
@@ -516,9 +516,12 @@ hl.window_rule({
 hl.window_rule({ name = "float-pavucontrol", match = { class = "^(pavucontrol)$" },          float = true })
 hl.window_rule({ name = "float-nm-editor",   match = { class = "^(nm-connection-editor)$" }, float = true })
 hl.window_rule({ name = "float-blueman",     match = { class = "^(blueman-manager)$" },      float = true })
+-- Nemo's equivalent of Thunar's "File Operation Progress": a separate
+-- window, titled "File Operations", that appears while a copy or move runs
+-- with no main window to host the popover.
 hl.window_rule({
-    name  = "float-thunar-progress",
-    match = { class = "^(thunar)$", title = "^(File Operation Progress)$" },
+    name  = "float-nemo-progress",
+    match = { class = "^(nemo)$", title = "^(File Operations)$" },
     float = true,
 })
 hl.window_rule({ name = "float-pip", match = { title = "^(Picture-in-Picture)$" }, float = true, pin = true })

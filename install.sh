@@ -164,7 +164,10 @@ apt_install \
     imagemagick \
     python3-pip \
     pipx \
-    thunar \
+    nemo \
+    nemo-fileroller \
+    gvfs-backends \
+    gvfs-fuse \
     kitty \
     pavucontrol \
     brightnessctl \
@@ -220,6 +223,83 @@ if fc-list | grep -qi "Hack Nerd Font"; then
     ok "Hack Nerd Font is available -- bar glyphs will render"
 else
     warn "Hack Nerd Font is still missing; icons in the bar will show as boxes"
+fi
+
+# ---------------------------------------------------------------- Dracula ---
+# The GTK theme and its icon set. Neither is packaged for Debian or Kali --
+# `apt-cache search dracula` returns nothing related -- so both come from
+# upstream into ~/.themes and ~/.icons, which need no root.
+DRACULA_GTK_VER="v4.0.0"
+
+install_dracula() {
+    local tmp url
+    tmp="$(mktemp -d)"
+
+    if [ -d "$HOME/.themes/Dracula" ]; then
+        ok "Dracula GTK theme already present"
+    else
+        url="https://github.com/dracula/gtk/releases/download/$DRACULA_GTK_VER/Dracula.tar.xz"
+        info "downloading Dracula GTK theme ($DRACULA_GTK_VER)..."
+        if curl -fsSL --retry 3 -o "$tmp/gtk.tar.xz" "$url"; then
+            mkdir -p "$HOME/.themes"
+            tar xf "$tmp/gtk.tar.xz" -C "$HOME/.themes"
+            ok "Dracula GTK theme installed"
+        else
+            warn "could not download the Dracula GTK theme -- skipping"
+        fi
+    fi
+
+    if [ -d "$HOME/.icons/Dracula-cursors" ]; then
+        ok "Dracula cursors already present"
+    else
+        url="https://github.com/dracula/gtk/releases/download/$DRACULA_GTK_VER/Dracula-cursors.tar.xz"
+        if curl -fsSL --retry 3 -o "$tmp/cursors.tar.xz" "$url"; then
+            mkdir -p "$HOME/.icons"
+            tar xf "$tmp/cursors.tar.xz" -C "$HOME/.icons"
+            ok "Dracula cursors installed"
+        else
+            warn "could not download the Dracula cursors -- skipping"
+        fi
+    fi
+
+    if [ -d "$HOME/.icons/Dracula" ]; then
+        ok "Dracula icon theme already present"
+    else
+        info "downloading Dracula icon theme..."
+        if curl -fsSL --retry 3 -o "$tmp/icons.tar.gz" \
+             "https://github.com/m4thewz/dracula-icons/archive/refs/heads/main.tar.gz"; then
+            tar xzf "$tmp/icons.tar.gz" -C "$tmp"
+            mkdir -p "$HOME/.icons"
+            rm -rf "$HOME/.icons/Dracula"
+            mv "$tmp/dracula-icons-main" "$HOME/.icons/Dracula"
+
+            # Upstream inherits from breeze-dark, Zafiro, Mint-X and
+            # elementary -- none of which Kali installs, so anything the set
+            # is missing would fall through to hicolor and render as a
+            # generic sheet of paper. Papirus-Dark is installed above and
+            # covers the gaps, so put it at the front of the chain.
+            sed -i 's/^Inherits=.*/Inherits=Papirus-Dark,ubuntu-mono-dark,gnome,hicolor/' \
+                "$HOME/.icons/Dracula/index.theme"
+            gtk-update-icon-cache -f -t "$HOME/.icons/Dracula" >/dev/null 2>&1 || true
+            ok "Dracula icon theme installed"
+        else
+            warn "could not download the Dracula icon theme -- skipping"
+        fi
+    fi
+
+    rm -rf "$tmp"
+}
+
+hdr "Installing the Dracula theme"
+install_dracula
+
+# GTK4 does not read ~/.themes at all, so the theme has to be handed to it
+# directly. GTK3 picks it up from settings.ini, deployed with the configs.
+if [ -d "$HOME/.themes/Dracula/gtk-4.0" ]; then
+    mkdir -p "$HOME/.config/gtk-4.0"
+    ln -sfn "$HOME/.themes/Dracula/gtk-4.0/gtk.css"      "$HOME/.config/gtk-4.0/gtk.css"
+    ln -sfn "$HOME/.themes/Dracula/gtk-4.0/gtk-dark.css" "$HOME/.config/gtk-4.0/gtk-dark.css"
+    ln -sfn "$HOME/.themes/Dracula/gtk-4.0/assets"       "$HOME/.config/gtk-4.0/assets"
 fi
 
 # ------------------------------------------------------------------ pywal ---
@@ -403,6 +483,14 @@ if [ "$INSTALL_HYPRLAND" = true ]; then
     cp -r "$REPO"/.config/wofi/.   "$HOME/.config/wofi/"
     cp -r "$REPO"/.config/dunst/.  "$HOME/.config/dunst/"
     cp -r "$REPO"/.config/fuzzel/. "$HOME/.config/fuzzel/"
+
+    # GTK3's own settings file -- this is what names Dracula for every GTK
+    # app, Nemo included. It is not under a backup_and_make directory
+    # because ~/.config/gtk-3.0 holds state this repo does not own
+    # (bookmarks, recently-used), so replace just the one file.
+    mkdir -p "$HOME/.config/gtk-3.0" "$HOME/.config/gtk-4.0"
+    cp "$REPO/.config/gtk-3.0/settings.ini" "$HOME/.config/gtk-3.0/settings.ini"
+    cp "$REPO/.config/gtk-4.0/settings.ini" "$HOME/.config/gtk-4.0/settings.ini"
 
     # Only hyprland.lua is deployed. Hyprland 0.51+ reads the Lua config;
     # 0.56 still loads a hyprland.conf but warns that support goes away in

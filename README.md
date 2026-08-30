@@ -167,7 +167,7 @@ If the host grabs the Super key, or a bind fails to register, these still work.
 |---|---|
 | `SUPER + Enter` | Terminal (kitty) |
 | `SUPER + D` | App launcher (fuzzel) |
-| `SUPER + SHIFT + Enter` | File manager (thunar) |
+| `SUPER + SHIFT + Enter` | File manager (nemo) |
 | `SUPER + SHIFT + F` | Firefox (via the session-aware wrapper) |
 | `SUPER + SHIFT + Q` | Close window |
 
@@ -298,6 +298,62 @@ date +%s          > ~/.config/bin/session.txt   # starts the session clock
 | Blur | behind kitty, the bar and notifications — **not** the launcher |
 | Animations | window open/close/move, 200 ms workspace slide, 100 ms focus border |
 | Terminal | black at 0.55 opacity, with `background_blur` |
+
+### GTK theme — Dracula
+
+Neither the theme nor its icon set is packaged for Debian or Kali, so
+`install.sh` fetches both from upstream into directories that need no root:
+
+| | Where | From |
+|---|---|---|
+| GTK 2/3/4 theme | `~/.themes/Dracula` | `dracula/gtk` release `v4.0.0` |
+| Icons | `~/.icons/Dracula` | `m4thewz/dracula-icons` |
+| Cursors | `~/.icons/Dracula-cursors` | `dracula/gtk` release |
+
+Two things the installer has to fix up, both invisible until they bite:
+
+- **The icon theme's fallback chain is wrong for this box.** Upstream inherits
+  from `breeze-dark, Zafiro, Mint-X, elementary` and none of them are
+  installed here, so any icon Dracula lacks falls through to `hicolor` and
+  renders as a blank sheet of paper. The installer rewrites `Inherits=` to put
+  `Papirus-Dark` — which `install.sh` already pulls in — at the front.
+- **GTK4 ignores `~/.themes` entirely.** GTK3 reads the theme name out of
+  `.config/gtk-3.0/settings.ini`, but a GTK4 app has to be handed the CSS, so
+  the installer symlinks `gtk.css`, `gtk-dark.css` and `assets` into
+  `~/.config/gtk-4.0/`.
+
+Nemo logs `Current gtk theme is not known to have nemo support (Dracula)` on
+every start. That is not a failure: Dracula ships no Nemo-specific CSS, so
+Nemo layers its own `nemo-style-fallback.css` on top, which is the normal path
+for any third-party theme and looks right.
+
+Swap the whole thing out from `gtk-theme-name` / `gtk-icon-theme-name` in
+`.config/gtk-3.0/settings.ini`, plus `XCURSOR_THEME` in `hyprland.lua`.
+
+### File manager — Nemo
+
+Thunar was Kali's default and this repo's original choice; Nemo replaces it
+for one reason, and it is worth being precise about where that feature lives.
+**Nemo does not implement SFTP, FTP or SMB — GVfs does.** "File → Connect to
+Server" is a front end to it, so the backends are a hard dependency:
+
+```
+nemo nemo-fileroller gvfs-backends gvfs-fuse
+```
+
+`gvfs-backends` supplies `gvfsd-sftp`, `-ftp`, `-smb`, `-dav`, `-nfs` and
+`-mtp`. `gvfs-fuse` is the part worth understanding: without it a remote share
+is reachable only by GVfs-aware applications, so Nemo could browse it while
+kitty, vim and every script could not. With it, `gvfsd-fuse` mounts everything
+under `/run/user/$UID/gvfs/`, as a real path any program can open.
+
+Two settings the install applies, neither of which is a default:
+
+- `org.nemo.desktop show-desktop-icons false` — Nemo would otherwise try to
+  draw the desktop, which under a Wayland compositor is not its job.
+- `org.cinnamon.desktop.default-applications.terminal exec` → `kitty`. Nemo
+  ships pointing "Open in Terminal" at `gnome-terminal`, which is not
+  installed here, so the entry silently did nothing.
 
 ### Effects profiles
 
