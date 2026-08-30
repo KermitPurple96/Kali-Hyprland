@@ -626,9 +626,57 @@ hl.bind(mainMod .. " + SHIFT + Tab", hl.dsp.group.prev())
 -- i3: $mod+f fullscreen toggle
 hl.bind(mainMod .. " + F", hl.dsp.window.fullscreen({ action = "toggle" }))
 
--- i3: $mod+Shift+space floating toggle / $mod+space focus mode_toggle
+-- --- Floating -------------------------------------------------------------
+-- These two are easy to mix up, so, precisely:
+--
+--   i3:  bindsym $mod+Shift+space floating toggle   <- MAKES A WINDOW FLOAT
+--   i3:  bindsym $mod+space       focus mode_toggle <- only MOVES FOCUS
+--
+-- The one that lifts a window out of the tiling layout and puts it back is
+-- SUPER+SHIFT+SPACE. Plain SUPER+SPACE changes no window at all; it jumps
+-- focus between the tiled windows and the floating ones. That is what
+-- i3-kitty binds, so that is what is bound here.
+--
+-- (To make SUPER+SPACE the float toggle instead, swap the two dispatchers
+-- below -- nothing else depends on either.)
+
+-- Float / unfloat the focused window. `action = "toggle"` is the exact
+-- form used in Hyprland's own bundled default config, so it is known-good.
 hl.bind(mainMod .. " + SHIFT + space", hl.dsp.window.float({ action = "toggle" }))
-hl.bind(mainMod .. " + space",         hl.dsp.window.cycle_next({ floating = true }))
+
+-- i3's `focus mode_toggle`, implemented properly.
+--
+-- Hyprland has no single dispatcher for this. The usual approximation is
+-- `cyclenext floating`, but that cycles *within* the floating windows
+-- rather than crossing between the two layers, and it misbehaves when
+-- nothing is floating. hl.bind takes a plain Lua function as its
+-- dispatcher, and the query API is fully typed in
+-- /usr/share/hypr/stubs/hl.meta.lua, so the real behaviour is a few lines:
+-- look at what is focused, and focus something in the other mode on this
+-- workspace.
+hl.bind(mainMod .. " + space", function()
+    local current = hl.get_active_window()
+    if not current then return end
+
+    local workspace = hl.get_active_workspace()
+    if not workspace then return end
+
+    -- HL.Window.floating is a boolean; HL.WindowQueryFilter accepts
+    -- `floating` and `workspace`; HL.WorkspaceSelector accepts the
+    -- workspace object itself.
+    local others = hl.get_windows({
+        floating  = not current.floating,
+        workspace = workspace,
+    })
+
+    -- Nothing in the other mode: leave focus where it is rather than
+    -- jumping somewhere surprising.
+    if not others or #others == 0 then return end
+
+    -- HL.WindowSelector is string|integer|HL.Window, so the window object
+    -- goes straight to focus.
+    hl.dispatch(hl.dsp.focus({ window = others[1] }))
+end)
 
 -- i3: bindsym $mod+a focus parent
 --

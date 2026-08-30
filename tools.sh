@@ -325,6 +325,10 @@ clone() {  # clone <url> <dest>
 mkdir -p "$HOME/dev/python" "$HOME/dev/bash" "$HOME/dev/go" "$HOME/tools" "$HOME/maquinas"
 
 clone https://github.com/KermitPurple96/Shellpy                  "$HOME/dev/python/shellpy"
+# NOTE: this one returns 404 anonymously -- it is either private or has
+# been renamed. config.sh clones it too, so it has been failing there as
+# well, just silently. clone() warns and carries on; if the repo is private
+# and your git has credentials, it will work for you.
 clone https://github.com/KermitPurple96/OSCP-PythonSupportTools  "$HOME/dev/python/support"
 clone https://github.com/metal3d/bashsimplecurses               "$HOME/dev/bash/bashsimplecurses"
 clone https://github.com/wirzka/incursore                       "$HOME/dev/incursore"
