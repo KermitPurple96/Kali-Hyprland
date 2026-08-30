@@ -39,7 +39,7 @@
     text_icon_padding = 8
 
     # Matches the 2px border and 10px rounding of a Hyprland window.
-    frame_width = 3
+    frame_width = 1
     corner_radius = 10
     separator_color = frame
     gap_size = 4

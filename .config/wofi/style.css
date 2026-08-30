@@ -14,7 +14,7 @@
 window {
     margin: 0;
     background-color: rgba(28, 29, 43, 0.88);
-    border: 3px solid #82c8ff;
+    border: 1px solid #00FF00;
     border-radius: 10px;
     color: #E6FFF5;
 }

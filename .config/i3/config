@@ -135,11 +135,11 @@ bar {
 }
 
 # i3-gaps
-for_window [class="^.*"] border pixel 3
+for_window [class="^.*"] border pixel 1
 gaps inner 2
 gaps outer 4
 
-client.focused  #82c8ff #82c8ff #dddddd
+client.focused  #00FF00 #00FF00 #dddddd
 client.focused_inactive #333333 #333333 #888888
 client.unfocused #333333 #333333 #888888
 client.urgent #900000 #900000 #ffffff

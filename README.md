@@ -34,8 +34,8 @@ layout, same keybindings — plus the three things i3 could never do:
 |---|---|
 | **Rounded corners** | 10px, on every window |
 | **Blur** | behind kitty, the bar, the launcher and notifications |
-| **Animations** | overshot bezier on open/close, wind on move, fades on focus |
-| **Borders** | 3px, on every window — kali-clean's 2px, thickened |
+| **Animations** | window open/close/move, workspace slide, 100ms focus border |
+| **Borders** | 1px — lime `#00FF00` focused, `#333333` everywhere else |
 
 The wallpaper is John Martin's *Le Pandemonium* (Louvre), installed to
 `~/.wallpaper/John_Martin_Le_Pandemonium_Louvre.jpg` and picked up by both
@@ -375,6 +375,7 @@ what makes it the escape of last resort. See
 | `Super + F` | Fullscreen | `fullscreen toggle` |
 | `Super + Shift + Space` | Toggle floating | `floating toggle` |
 | `Super + Space` | Cycle floating windows | `focus mode_toggle` |
+| `Super + A` | Focus last window — see the note below | `focus parent` (no exact equivalent) |
 | `Super + P` | Pseudo-tile | *dwindle extra* |
 | `Super + C` | Center window | *dwindle extra* |
 | `Super + 1..0` | Switch workspace | `workspace 1` … |
@@ -392,6 +393,19 @@ what makes it the escape of last resort. See
 
 Inside resize mode the same `j/k/l/;` and arrow keys resize by 20px, exactly
 as i3's `resize shrink width 10 px or 10 ppt` block did.
+
+**Every binding in kali-clean's i3 config is accounted for above except one.**
+`$mod+a` (*focus parent*) has no true Hyprland equivalent. i3 builds a tree of
+containers and `$mod+a` walks up it, so the next command applies to the parent
+instead of the window; dwindle has no addressable parent container, and 0.56
+ships no `focusparent` dispatcher — the `hl.dsp` surface in
+`/usr/share/hypr/stubs/hl.meta.lua` lists `focus`, `window.*`, `group.*`,
+`workspace.*` and `cursor.*`, and nothing that walks a tree.
+
+So `Super + A` is bound to the nearest genuinely useful thing instead —
+`hl.dsp.focus({ last = true })`, jump back to the window you came from. If
+what you wanted the parent for was *"treat these windows as one unit"*, that
+is `Super + S` / `Super + W` (groups).
 
 Keyboard layout is `es`. Change `kb_layout` in `.config/hypr/hyprland.lua` —
 it is the only machine-specific line in the file.
@@ -455,17 +469,53 @@ Two things worth knowing about that line:
 Under a compositor without the extension the line is simply ignored, never an
 error.
 
-#### Border thickness
-One global covers every window, Wayland-native and XWayland alike:
+#### Border thickness and the focus colour
+One global covers every window, Wayland-native and XWayland alike — there
+are no per-app border rules to write:
 
 ```lua
-general = { border_size = 3 },   -- kali-clean's i3 used 2
+general = {
+    border_size = 1,              -- 1 is the minimum that still draws
+    col = { active_border = focus },   -- focus = rgba(00ff00ff)
+}
 ```
 
-Three other files carry the same weight so nothing looks out of place —
-`~/.config/wofi/style.css` (`border: 3px`), `~/.config/dunst/dunstrc`
-(`frame_width = 3`) and, on the X11 side, `~/.config/i3/config`
-(`border pixel 3`).
+`border_size = 0` removes the border altogether, and with it the focus
+indicator and the drag-to-resize edge, so 1 is the practical floor. At that
+width the colour has to be bright to register at all, which is why the
+focused border is full-intensity lime rather than a muted green.
+
+`focus` is deliberately a separate colour from `accent`: the bar, the
+launcher and notifications keep kali-clean's `#82c8ff`, and lime means one
+thing only — *this window has focus*. The same 1px lime is mirrored in
+`~/.config/i3/config` (`border pixel 1`, `client.focused #00FF00`) so both
+sessions look identical, and in `~/.config/wofi/style.css`, since the
+launcher does hold focus while it is open. `~/.config/dunst/dunstrc` thins
+to `frame_width = 1` but keeps the blue palette, because a notification is
+never the focused window.
+
+#### Animation speed — `speed` is in DECISECONDS
+This is the unit that catches people out. `speed = 10` is a **one second**
+animation, not a fast one. The focus border was on `speed = 10`, which is
+why moving between windows with `SUPER+arrow` looked like it lagged: the
+border was doing a full one-second crossfade from grey to lime.
+
+Per-profile timings now live in the `FX` table at the top of the config:
+
+| | `soft` (default) | `full` | `lite` |
+|---|---|---|---|
+| `border_speed` — focus feedback | 1 (100ms) | 2 | 1 |
+| `ws_speed` — workspace slide | 2 (200ms) | 4 | — |
+| `anim_speed` — window open/close/move | 3 (300ms) | 5 | off |
+| workspace animation | on | on | off |
+| `blur_size` | 5 | 8 | off |
+
+Workspace switching redraws every pixel on screen for the whole animation,
+so on a CPU renderer the lever that keeps it affordable is **duration, not
+curve** — 200ms is few enough frames for llvmpipe to composite while still
+reading as a slide. It also uses `wind` rather than an overshoot bezier: an
+overshoot travels past the target and comes back, which means compositing
+extra full-screen frames for an effect you barely notice.
 
 #### Modify animations
 ```lua

@@ -34,7 +34,7 @@ window#waybar.hidden {
 
 tooltip {
     background: rgba(28, 29, 43, 0.95);
-    border: 2px solid #82c8ff;
+    border: 1px solid #82c8ff;
     color: #E6FFF5;
 }
 

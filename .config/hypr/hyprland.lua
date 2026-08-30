@@ -57,32 +57,45 @@ end
 
 local FX = {
     full = {
-        blur = true,  blur_size = 6, blur_passes = 2,
+        blur = true,  blur_size = 8, blur_passes = 2,
         blur_xray = false, blur_popups = true,
         blur_noise = 0.0117, blur_vibrancy = 0.1696,
         shadow = true,
-        anim = true, anim_workspaces = true, anim_speed = 5,
+        anim = true, anim_speed = 5,
+        anim_workspaces = true, ws_speed = 4,
+        border_speed = 2,
     },
     soft = {
-        -- One pass at a small radius. With new_optimizations on, a window
-        -- that is not moving costs nothing after the frame that drew it.
-        blur = true,  blur_size = 4, blur_passes = 1,
+        -- One pass, radius 5. With new_optimizations on, a window that is
+        -- not moving costs nothing after the frame that drew it. 5 rather
+        -- than 4 because kitty now sits at 0.55 alpha: there is a lot more
+        -- wallpaper showing through, so it wants a softer frost.
+        blur = true,  blur_size = 5, blur_passes = 1,
         -- xray: floating windows blur the wallpaper instead of re-blurring
         -- everything stacked under them. Needs new_optimizations.
         blur_xray = true,  blur_popups = false,
         -- noise and vibrancy are extra per-pixel maths on top of the blur.
         blur_noise = 0.0,  blur_vibrancy = 0.0,
         shadow = false,
-        -- Window animations touch one window's box. Workspace animations
-        -- redraw the entire screen every frame, so they go.
-        anim = true, anim_workspaces = false, anim_speed = 3,
+        anim = true, anim_speed = 3,
+        -- Workspace switching IS on now. It redraws every pixel on screen
+        -- for the whole animation, which is why it used to be off here --
+        -- so the lever that keeps it affordable is duration, not curve.
+        -- 2 = 200ms. Short enough that llvmpipe only has to composite a
+        -- handful of frames, long enough to read as a slide.
+        anim_workspaces = true, ws_speed = 2,
+        -- Focus feedback. This is the one you feel on every SUPER+arrow,
+        -- so it is the one that must not lag: 100ms, near-instant.
+        border_speed = 1,
     },
     lite = {
         blur = false, blur_size = 1, blur_passes = 1,
         blur_xray = false, blur_popups = false,
         blur_noise = 0.0, blur_vibrancy = 0.0,
         shadow = false,
-        anim = false, anim_workspaces = false, anim_speed = 1,
+        anim = false, anim_speed = 1,
+        anim_workspaces = false, ws_speed = 1,
+        border_speed = 1,
     },
 }
 
@@ -106,6 +119,14 @@ local overlay = (os.getenv("HYPR_OVERLAY") == "1")
 --   $vpn      3BB92D  i3blocks tun0 indicator
 local accent   = "rgba(82c8ffff)"
 local inactive = "rgba(333333ff)"
+
+-- The focused window's border. Deliberately NOT $accent: the bar, the
+-- launcher and the notifications keep kali-clean's blue, and the one thing
+-- that says "this window has focus" is lime. #00FF00 is the same green the
+-- kitty cursor already uses, so the two read as one accent.
+-- At border_size = 1 a muted green would simply disappear -- a 1px line has
+-- to be bright to register at all, which is why this is full-intensity.
+local focus    = "rgba(00ff00ff)"
 local shadowC  = "rgba(1a1a1aee)"
 local barBg    = "rgba(1C1D2Bff)"
 local barBgAlt = "rgba(282A3Eff)"
@@ -194,17 +215,19 @@ hl.config({
         gaps_in  = 2,
         gaps_out = 4,
 
-        -- i3 used `for_window [class="^.*"] border pixel 2`. Bumped to 3
-        -- here, and matched in the i3 config, the wofi frame and dunst's
-        -- frame_width so every surface on screen carries the same weight.
-        -- This is a global: Hyprland draws the frame for *every* window,
-        -- Wayland-native and XWayland alike, so there is no per-app work
-        -- to do. To go back, this line and those three are the only ones.
-        border_size = 3,
+        -- 1px: as thin as Hyprland will draw and still show a colour.
+        -- (0 removes the border entirely, along with the focus indicator
+        -- and the drag-to-resize edge, so 1 is the real minimum.)
+        -- This is a global -- Hyprland draws the frame for EVERY window,
+        -- Wayland-native and XWayland alike -- so "all apps" needs no
+        -- per-app rules. The i3 config carries the same `border pixel 1`.
+        border_size = 1,
 
         col = {
-            -- i3: client.focused #82c8ff / client.unfocused #333333
-            active_border   = accent,
+            -- Focused: lime. Unfocused: kali-clean's #333333, which at 1px
+            -- is almost invisible -- exactly the point, only the active
+            -- window should draw the eye.
+            active_border   = focus,
             inactive_border = inactive,
         },
 
@@ -279,7 +302,8 @@ hl.config({
     -- Hyprland's answer to i3's stacking/tabbed layouts (SUPER+S / SUPER+W)
     group = {
         col = {
-            border_active   = accent,
+            -- Same rule as a normal window: the active one is lime.
+            border_active   = focus,
             border_inactive = inactive,
         },
         groupbar = {
@@ -380,10 +404,12 @@ if fx.anim then
     hl.animation({ leaf = "windowsOut",  enabled = true, speed = s - 1, bezier = "smoothOut", style = "popin 80%" })
     hl.animation({ leaf = "windowsMove", enabled = true, speed = s - 1, bezier = "wind",      style = "slide" })
 
-    -- Border colour crossfade: a few hundred pixels of edge. Free, and it
-    -- matters more now the border is 3px instead of 2px -- the focus
-    -- change is the most frequent transition in a tiling session.
-    hl.animation({ leaf = "border",      enabled = true, speed = 10,    bezier = "linear" })
+    -- Border colour crossfade -- this is what you see on every SUPER+arrow.
+    -- It was `speed = 10`, and speed is in DECISECONDS, so that was a full
+    -- one-second fade from grey to lime: the "border changes slowly" you
+    -- were looking at. fx.border_speed is 1 in `soft` (100ms), which reads
+    -- as instant while still smoothing the colour step.
+    hl.animation({ leaf = "border",      enabled = true, speed = fx.border_speed, bezier = "linear" })
 
     -- Opacity fades: cheap, and they are what stops windows from popping.
     -- The parent `fade` leaf covers both directions; naming the In/Out
@@ -392,8 +418,10 @@ if fx.anim then
     hl.animation({ leaf = "fade",        enabled = true, speed = s + 2, bezier = "smoothIn" })
     hl.animation({ leaf = "fadeIn",      enabled = true, speed = s + 2, bezier = "smoothIn" })
     hl.animation({ leaf = "fadeOut",     enabled = true, speed = s,     bezier = "smoothOut" })
-    -- fadeSwitch: the crossfade when focus moves between windows.
-    hl.animation({ leaf = "fadeSwitch",  enabled = true, speed = s + 2, bezier = "smoothIn" })
+    -- fadeSwitch is the other half of the focus change. Leaving it at
+    -- s+2 (500ms) would keep SUPER+arrow feeling sluggish even with the
+    -- border fixed, so it tracks border_speed instead.
+    hl.animation({ leaf = "fadeSwitch",  enabled = true, speed = fx.border_speed + 1, bezier = "smoothIn" })
     hl.animation({ leaf = "fadeDim",     enabled = true, speed = s + 2, bezier = "smoothIn" })
 
     -- Bar, launcher and notifications: layer surfaces, small area, so the
@@ -409,8 +437,17 @@ if fx.anim then
     -- duration of the animation. It is by far the most expensive thing in
     -- this file on a CPU renderer, and it is the one you trigger most
     -- often. `full` gets the slide; `soft` switches instantly.
+    -- Workspace switching. `slide` (horizontal) rather than the old
+    -- `slidevert`, because SUPER+1..0 reads as a row, not a column -- the
+    -- workspaces slide the way the number keys are laid out.
+    --
+    -- `wind` rather than `overshot`: an overshoot bezier travels past the
+    -- target and comes back, which on a full-screen slide means compositing
+    -- extra frames of the whole screen for an effect you barely see.
     if fx.anim_workspaces then
-        hl.animation({ leaf = "workspaces", enabled = true, speed = 5, bezier = "overshot", style = "slidevert" })
+        hl.animation({ leaf = "workspaces",    enabled = true, speed = fx.ws_speed, bezier = "wind", style = "slide" })
+        hl.animation({ leaf = "workspacesIn",  enabled = true, speed = fx.ws_speed, bezier = "wind", style = "slide" })
+        hl.animation({ leaf = "workspacesOut", enabled = true, speed = fx.ws_speed, bezier = "wind", style = "slide" })
     else
         hl.animation({ leaf = "workspaces", enabled = false })
     end
@@ -565,6 +602,25 @@ hl.bind(mainMod .. " + F", hl.dsp.window.fullscreen({ action = "toggle" }))
 -- i3: $mod+Shift+space floating toggle / $mod+space focus mode_toggle
 hl.bind(mainMod .. " + SHIFT + space", hl.dsp.window.float({ action = "toggle" }))
 hl.bind(mainMod .. " + space",         hl.dsp.window.cycle_next({ floating = true }))
+
+-- i3: bindsym $mod+a focus parent
+--
+-- This is the ONE binding in kali-clean's i3 config with no true Hyprland
+-- equivalent. i3 builds a tree of containers and $mod+a walks up it, so
+-- the next command applies to the parent instead of the window. dwindle
+-- has no addressable parent container and 0.56 ships no `focusparent`
+-- dispatcher -- `strings /usr/bin/Hyprland` lists movefocus, focuswindow,
+-- focuscurrentorlast and the group dispatchers, and nothing else.
+--
+-- So SUPER+A gets the nearest thing that is actually useful rather than
+-- being left dead: jump back to the window you were on last. If what you
+-- wanted the parent for was "treat these windows as one unit", that is
+-- SUPER+S / SUPER+W (groups).
+--
+-- `last` is the verified key -- Hyprland's own error text spells out the
+-- accepted set: "hl.focus: unrecognized arguments. Expected one of:
+-- direction, monitor, window, urgent_or_last, last".
+hl.bind(mainMod .. " + A", hl.dsp.focus({ last = true }))
 
 -- Extra dwindle niceties
 hl.bind(mainMod .. " + P", hl.dsp.window.pseudo())
