@@ -6,7 +6,12 @@
 # keeps its number as a prefix ("3:web") so SUPER+3 still means something.
 set -eu
 
-id=$(hyprctl activeworkspace -j 2>/dev/null | jq -r '.id // empty')
+# hyprctl's usage is `hyprctl [flags] <command>` -- the -j flag has to
+# come BEFORE the command. `hyprctl activeworkspace -j` passes -j to the
+# command as an argument instead, so no JSON came back, jq got nothing,
+# $id stayed empty and the script exited without renaming anything.
+# That is why SUPER+N and SUPER+B appeared to do nothing at all.
+id=$(hyprctl -j activeworkspace 2>/dev/null | jq -r '.id // empty')
 [ -n "$id" ] || { echo "could not determine the active workspace" >&2; exit 1; }
 
 name=$(printf '' | "$(dirname "$0")/dmenu.sh" "Rename workspace $id to:")
