@@ -16,7 +16,7 @@ if [ "$EUID" -eq 0 ]; then
     exit 1
 fi
 
-echo "==> 1/5 packages"
+echo "==> 1/6 packages"
 sudo apt update
 sudo apt install -y \
     hyprland xdg-desktop-portal-hyprland xwayland \
@@ -25,13 +25,13 @@ sudo apt install -y \
     mate-polkit wireplumber network-manager-gnome \
     fonts-hack papirus-icon-theme
 
-echo "==> 2/5 session launcher -> /usr/local/bin/start-hyprland-vmware"
+echo "==> 2/6 session launcher -> /usr/local/bin/start-hyprland-vmware"
 # The important one. Waits for logind Active=yes so libinput can actually open
 # the keyboard, picks llvmpipe only when the host has 3D off, and writes a
 # plain-language verdict to ~/hyprland-diag.txt.
 sudo install -m 755 "$HERE/start-hyprland-vmware" /usr/local/bin/start-hyprland-vmware
 
-echo "==> 3/5 session entries -> /usr/share/wayland-sessions/"
+echo "==> 3/6 session entries -> /usr/share/wayland-sessions/"
 sudo install -m 644 "$HERE/hyprland.desktop"      /usr/share/wayland-sessions/hyprland.desktop
 sudo install -m 644 "$HERE/hyprland-diag.desktop" /usr/share/wayland-sessions/hyprland-diag.desktop
 # "Hyprland (lite)": identical config with HYPR_EFFECTS=lite. The normal
@@ -47,7 +47,7 @@ sudo install -m 644 "$HERE/hyprland-test.desktop" /usr/share/wayland-sessions/hy
 # that drops you straight back to the greeter. Remove it.
 sudo rm -f /usr/share/wayland-sessions/hyprland-uwsm.desktop
 
-echo "==> 4/5 desktop config -> ~/.config"
+echo "==> 4/6 desktop config -> ~/.config"
 # One config, shared with the bare-metal install: ../.config/hypr/hyprland.lua.
 # There is no separate VM copy any more -- the difference between a machine
 # with a GPU and one without is the HYPR_EFFECTS environment variable, not a
@@ -77,7 +77,17 @@ install -m 644 "$REPO/.config/kitty/kitty.conf"    ~/.config/kitty/kitty.conf
 install -m 755 "$REPO/.config/i3/clipboard_fix.sh" ~/.config/i3/clipboard_fix.sh
 cp -n "$REPO"/.wallpaper/* ~/.wallpaper/ 2>/dev/null || true
 
-echo "==> 5/5 make Hyprland the default LightDM session"
+echo "==> 5/6 Dracula theme and desktop settings"
+# Same script the bare-metal installer calls, so the two cannot drift. It
+# needs no root and skips whatever is already in place, which is why it is
+# safe to re-run this installer.
+if [ -x "$REPO/theme.sh" ]; then
+    "$REPO/theme.sh" || echo "    theme.sh reported a problem -- the desktop still works, it is just unthemed"
+else
+    echo "    theme.sh not found in $REPO -- skipping the theme"
+fi
+
+echo "==> 6/6 make Hyprland the default LightDM session"
 sudo install -m 644 "$HERE/02-default-session.conf" \
     /etc/lightdm/lightdm.conf.d/02-default-session.conf
 # LightDM prefers ~/.dmrc over the seat default once you have logged in once.

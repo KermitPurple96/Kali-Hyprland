@@ -27,8 +27,9 @@ git clone https://github.com/KermitPurple96/Kali-Hyprland
 cd Kali-Hyprland
 ```
 
-There are four scripts. You normally run the first two, plus the third if
-you are in a VM.
+There are five scripts. You normally run the first two, plus the third if
+you are in a VM. `theme.sh` is called for you by both installers; run it by
+hand only to re-apply or change the theme.
 
 ### `./install.sh` — the desktop
 
@@ -101,6 +102,29 @@ entries (including the safe-test one), the apt hook, and swaybg.
 ```bash
 cd vmware && ./update-system.sh
 ```
+
+### `./theme.sh` — the Dracula theme and desktop settings
+
+Both installers call this, so you do not normally run it yourself. It exists
+as its own script because there are two of them — `install.sh` and the
+self-contained `vmware/install-vmware.sh` — and inlining it would mean
+writing it twice.
+
+```bash
+./theme.sh                # fetch the theme, wire GTK, apply the settings
+./theme.sh --status       # report what is present and what is set
+./theme.sh --no-apply     # fetch the theme files, change no settings
+```
+
+**It needs no root** — the theme lands in `~/.themes` and `~/.icons` and every
+setting is per-user — so it is safe to re-run from inside a live session.
+Anything already in place is skipped, and a failed download warns rather than
+aborting: an unthemed desktop must not take an install down with it.
+
+See [GTK theme — Dracula](#gtk-theme--dracula) for what it installs and the
+two upstream quirks it works around.
+
+---
 
 ### `./sync.sh` — capture live changes back into the repo
 
@@ -302,7 +326,7 @@ date +%s          > ~/.config/bin/session.txt   # starts the session clock
 ### GTK theme — Dracula
 
 Neither the theme nor its icon set is packaged for Debian or Kali, so
-`install.sh` fetches both from upstream into directories that need no root:
+`./theme.sh` fetches both from upstream into directories that need no root:
 
 | | Where | From |
 |---|---|---|
@@ -310,16 +334,16 @@ Neither the theme nor its icon set is packaged for Debian or Kali, so
 | Icons | `~/.icons/Dracula` | `m4thewz/dracula-icons` |
 | Cursors | `~/.icons/Dracula-cursors` | `dracula/gtk` release |
 
-Two things the installer has to fix up, both invisible until they bite:
+Two things `theme.sh` has to fix up, both invisible until they bite:
 
 - **The icon theme's fallback chain is wrong for this box.** Upstream inherits
   from `breeze-dark, Zafiro, Mint-X, elementary` and none of them are
   installed here, so any icon Dracula lacks falls through to `hicolor` and
-  renders as a blank sheet of paper. The installer rewrites `Inherits=` to put
+  renders as a blank sheet of paper. It rewrites `Inherits=` to put
   `Papirus-Dark` — which `install.sh` already pulls in — at the front.
 - **GTK4 ignores `~/.themes` entirely.** GTK3 reads the theme name out of
   `.config/gtk-3.0/settings.ini`, but a GTK4 app has to be handed the CSS, so
-  the installer symlinks `gtk.css`, `gtk-dark.css` and `assets` into
+  it symlinks `gtk.css`, `gtk-dark.css` and `assets` into
   `~/.config/gtk-4.0/`.
 
 Nemo logs `Current gtk theme is not known to have nemo support (Dracula)` on
@@ -347,7 +371,7 @@ is reachable only by GVfs-aware applications, so Nemo could browse it while
 kitty, vim and every script could not. With it, `gvfsd-fuse` mounts everything
 under `/run/user/$UID/gvfs/`, as a real path any program can open.
 
-Two settings the install applies, neither of which is a default:
+Two settings `theme.sh` applies, neither of which is a default:
 
 - `org.nemo.desktop show-desktop-icons false` — Nemo would otherwise try to
   draw the desktop, which under a Wayland compositor is not its job.
