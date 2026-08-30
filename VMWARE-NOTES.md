@@ -168,6 +168,60 @@ That `drm:` spam is cosmetic either way. It was never the input fault.
 
 ---
 
+## The guest never resized to the VMware window
+
+**Symptom.** The desktop renders at 1280x800 and stays there no matter how the
+VMware window is resized — a fixed rectangle with dead space around it. Nothing
+in the logs complains.
+
+**Root cause.** open-vm-tools does only the first half of a guest resize. The
+host pushes the new window size down through vmwgfx, which publishes it as the
+preferred — first — mode on the virtual connector, and that part works:
+
+```
+$ head -1 /sys/class/drm/card0-Virtual-1/modes
+1716x1271                      <- the live VMware window, tracked correctly
+$ hyprctl monitors | sed -n 2p
+1280x800@60.00000 at 0x0       <- what Hyprland is actually driving
+```
+
+The second half is missing. `vmware-user` applies that mode with **xrandr**, an
+X11 call with no Wayland equivalent, so under Hyprland nothing ever consumes
+the new preferred mode. Note the two lists disagree: `hyprctl monitors`
+reports `availableModes` without `1716x1271` at all, because Hyprland
+enumerated the connector once at startup and the dynamic mode appeared after.
+
+**Fix.** `scripts/vmware-autofit.sh`, autostarted from `hyprland.lua`: poll the
+connector's preferred mode and apply it whenever Hyprland's differs.
+
+Two things it has to get right, both found the hard way:
+
+- **`hyprctl keyword` does not work on a Lua config.** It fails with
+  `keyword can't work with non-legacy parsers. Use eval.` The way in is
+  `hyprctl eval` calling `hl.monitor()`:
+
+  ```bash
+  hyprctl eval 'hl.monitor({output="Virtual-1", mode="1716x1271@60", position="0x0", scale=1})'
+  ```
+
+  A mode absent from `availableModes` is still accepted, which is the whole
+  reason this works.
+
+- **Compare against Hyprland's live mode, not against the last mode applied.**
+  Hyprland re-runs the `mode = "preferred"` monitor rule on config reload
+  (`SUPER+SHIFT+R`) and on output hotplug, snapping straight back to 1280x800
+  while the connector's preferred mode never changed. A watcher that cached
+  what it last set would see "nothing to do" and make that revert permanent.
+  Reading the live value each tick re-fixes it on the next second.
+
+The script holds a `flock` on `$XDG_RUNTIME_DIR/vmware-autofit.lock`, so a
+second copy exits silently rather than fighting the first over the output.
+
+The monitor rule in `hyprland.lua` stays at `mode = "preferred"`. It is the
+right thing on real hardware, and the watcher corrects it here.
+
+---
+
 ## Escaping a session you cannot use: `Ctrl+Alt+F3`
 
 The failure that started all of this — a desktop that renders but takes no

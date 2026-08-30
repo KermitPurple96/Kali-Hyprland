@@ -181,6 +181,13 @@ hl.on("hyprland.start", function()
     -- Drives VMware guest clipboard sync and display resize.
     hl.exec_cmd("command -v vmware-user-suid-wrapper >/dev/null 2>&1 && vmware-user-suid-wrapper")
 
+    -- ...but only half of it. vmware-user resizes the display through
+    -- xrandr, which is an X11 call with no Wayland equivalent, so under
+    -- Hyprland the guest never follows the VMware window. vmwgfx still
+    -- publishes the new size as the connector's preferred mode; this
+    -- watches for that and applies it.
+    hl.exec_cmd("~/.config/hypr/scripts/vmware-autofit.sh")
+
     -- Hand the session environment to systemd/dbus so portals and tray work
     hl.exec_cmd("dbus-update-activation-environment --systemd WAYLAND_DISPLAY XDG_CURRENT_DESKTOP")
     hl.exec_cmd("systemctl --user import-environment WAYLAND_DISPLAY XDG_CURRENT_DESKTOP")
