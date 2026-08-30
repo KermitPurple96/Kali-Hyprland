@@ -1,0 +1,173 @@
+#!/bin/bash
+# Hyprland session launcher for this VMware guest.
+# Referenced by /usr/share/wayland-sessions/hyprland.desktop.
+#
+# HYPR_DIAG_EXIT=<seconds>  -> quit Hyprland by itself after that many seconds.
+#   Used by the "Hyprland (diagnostic)" session entry so a broken-input session
+#   can still be ended without power-cycling the VM.
+
+RUNDIR="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}"
+LOG="$HOME/hyprland-last.log"
+DIAG="$HOME/hyprland-diag.txt"
+
+# --- 1. Clear leftover compositors -------------------------------------
+# A Hyprland that crashed or was launched from inside X keeps its libseat
+# lease on the keyboard and mouse. Never let a stale instance survive.
+for pid in $(pgrep -u "$(id -u)" -x Hyprland 2>/dev/null); do
+    [ "$pid" = "$$" ] && continue
+    kill -9 "$pid" 2>/dev/null
+done
+pkill -u "$(id -u)" -x waybar 2>/dev/null
+pkill -u "$(id -u)" -x hyprpaper 2>/dev/null
+
+# --- 2. Renderer -------------------------------------------------------
+# vmwgfx reports "Available shader model: Legacy" when host 3D acceleration
+# is off; there is no GLES 3.x then and Hyprland exits immediately. Only in
+# that case force llvmpipe.
+SHADER=$(journalctl -k -b 2>/dev/null | grep -o 'shader model: [A-Za-z0-9._]*' | tail -1)
+case "$SHADER" in
+    *[Ll]egacy*|"")
+        export LIBGL_ALWAYS_SOFTWARE=1
+        export GALLIUM_DRIVER=llvmpipe
+        RENDERER="llvmpipe (no host 3D: '${SHADER:-vmwgfx reported nothing}')"
+        ;;
+    *)
+        RENDERER="hardware ($SHADER)"
+        ;;
+esac
+
+# --- 3. Aquamarine (Hyprland 0.56 does not use wlroots) ----------------
+[ -e /dev/dri/card0 ] && export AQ_DRM_DEVICES=/dev/dri/card0
+export AQ_NO_MODIFIERS=1
+export AQ_NO_ATOMIC=1
+
+export XDG_SESSION_TYPE=wayland
+export XDG_CURRENT_DESKTOP=Hyprland
+export XDG_SESSION_DESKTOP=Hyprland
+
+# --- 4. Watchdog: answer the input question without needing a keyboard --
+# The session can come up unable to type, which leaves no way to run
+# anything by hand. So ask Hyprland itself, from outside, on a timer, and
+# fsync the answers -- they have to survive a hard power-off of the VM.
+watchdog() {
+    sleep 12
+
+    local dir
+    dir=$(ls -1dt "$RUNDIR"/hypr/*/ 2>/dev/null | head -1)
+    HYPRLAND_INSTANCE_SIGNATURE=$(basename "${dir:-none}")
+    export HYPRLAND_INSTANCE_SIGNATURE
+
+    {
+        echo "=== diagnostics $(date -Is) ==="
+        echo "instance:  $HYPRLAND_INSTANCE_SIGNATURE"
+        echo
+        echo "--- is this session the active one on seat0? ---"
+        # If Active=no, logind hands out no input devices: that alone would
+        # explain a session that renders but never receives a key.
+        loginctl show-session "${XDG_SESSION_ID:-auto}" \
+            -p Id -p Class -p Type -p Seat -p VTNr -p Active -p State 2>&1
+        echo "active VT: $(cat /sys/class/tty/tty0/active 2>&1)"
+        echo
+        echo "--- seat ---"
+        loginctl seat-status seat0 2>&1 | head -40
+        echo
+        echo "--- hyprctl version ---";      hyprctl version 2>&1 | head -4
+        echo "--- hyprctl configerrors ---"; hyprctl configerrors 2>&1
+        echo "--- hyprctl devices ---";      hyprctl devices 2>&1
+        echo "--- hyprctl monitors ---";     hyprctl monitors 2>&1
+        echo "--- hyprctl clients ---";      hyprctl clients 2>&1
+        echo "--- hyprctl binds ---";        hyprctl binds 2>&1 | head -60
+        echo
+        echo "--- input/drm fds actually held by Hyprland ---"
+        for p in $(pgrep -u "$(id -u)" -f 'Hyprland|start-hyprland' 2>/dev/null); do
+            echo "pid $p ($(tr '\0' ' ' < "/proc/$p/cmdline" 2>/dev/null)):"
+            ls -l "/proc/$p/fd" 2>/dev/null | grep -E '/dev/(input|dri)' || echo "  (no input/dri fds)"
+        done
+        echo
+        echo "--- /dev/input ---"; ls -l /dev/input/
+        echo
+        echo "--- verdict ---"
+        # Judge on libinput's own startup lines, not on hyprctl: "hyprctl
+        # devices" has been seen to return an empty list in a session whose
+        # mice demonstrably worked, so it cannot be trusted here. libinput
+        # prints "is tagged by udev as: Keyboard" for every keyboard it
+        # actually took, and "not using input device" for each one it could
+        # not open. ("BUG THIS: setKeyboardFocus without a valid keyboard"
+        # confirms it too, but only gets printed at shutdown, too late.)
+        REFUSED=$(grep -c "not using input device" "$LOG" 2>/dev/null)
+        if grep -q "tagged by udev as:.*Keyboard" "$LOG" 2>/dev/null; then
+            echo "OK: libinput bound a keyboard (refused $REFUSED device(s))"
+        else
+            echo "BROKEN: libinput bound no keyboard, so typing cannot work."
+            echo "        It refused $REFUSED device(s) at startup:"
+            grep "not using input device" "$LOG" 2>/dev/null | sed 's/^/        /'
+        fi
+        echo "session Active now: $(loginctl show-session "${XDG_SESSION_ID:-auto}" -p Active --value 2>&1)"
+    } >> "$DIAG" 2>&1
+    sync
+
+    if [ -n "$HYPR_DIAG_EXIT" ]; then
+        sleep "$HYPR_DIAG_EXIT"
+        echo "=== diagnostic timeout, exiting $(date -Is) ===" >> "$DIAG"
+        sync
+        hyprctl dispatch exit >/dev/null 2>&1
+    fi
+}
+
+# --- 4b. Wait until logind makes this session the active one -----------
+# THIS is the bug that made the session unusable.
+#
+# libinput enumerates /dev/input exactly once, when the compositor starts.
+# Every device it cannot open at that instant is dropped and never retried:
+# no udev "add" event ever arrives for a node that already existed. logind
+# refuses to hand out device fds to a session that is not Active on the
+# seat, and LightDM switches the VT asynchronously -- so whether Hyprland
+# beats the VT switch is a coin flip. The 01:49 log lost it:
+#
+#   [libinput] event0 - not using input device '/dev/input/event0'  <- keyboard
+#   Session is not active, waiting for 5s
+#   ...
+#   ERR ]: BUG THIS: setKeyboardFocus without a valid keyboard set
+#
+# The mice (event2/event3) happened to open, so the pointer worked and the
+# session looked alive while no keystroke could ever be delivered. Waiting
+# for Active=yes before launching closes the race.
+SESSION="${XDG_SESSION_ID:-auto}"
+ACTIVE=""
+for _ in $(seq 1 150); do
+    ACTIVE=$(loginctl show-session "$SESSION" -p Active --value 2>/dev/null)
+    [ "$ACTIVE" = "yes" ] && break
+    sleep 0.1
+done
+
+# --- 5. Keep the evidence ----------------------------------------------
+# Hyprland's own log lives in $XDG_RUNTIME_DIR, which is tmpfs and gone
+# after a reboot, and the copy below only happens on a clean exit. The
+# config also sets debug.enable_stdout_logs, so the interesting lines land
+# in $LOG live and survive a power-off mid-session.
+{
+    echo "=== start-hyprland-vmware $(date -Is) ==="
+    echo "renderer:  $RENDERER"
+    echo "seat:      XDG_SESSION_ID=${XDG_SESSION_ID:-unset} XDG_VTNR=${XDG_VTNR:-unset}"
+    echo "display:   DISPLAY=${DISPLAY:-unset} WAYLAND_DISPLAY=${WAYLAND_DISPLAY:-unset}"
+    echo "diag mode: ${HYPR_DIAG_EXIT:-off}"
+    echo "session:   Active=${ACTIVE:-unknown} after waiting for logind"
+} > "$LOG"
+: > "$DIAG"
+
+watchdog &
+WATCHDOG=$!
+
+/usr/bin/start-hyprland "$@" >> "$LOG" 2>&1
+rc=$?
+
+kill "$WATCHDOG" 2>/dev/null
+
+NEWEST=$(ls -1dt "$RUNDIR"/hypr/*/hyprland.log 2>/dev/null | head -1)
+if [ -n "$NEWEST" ]; then
+    echo "=== $NEWEST ===" >> "$LOG"
+    cat "$NEWEST" >> "$LOG"
+fi
+echo "=== exited rc=$rc at $(date -Is) ===" >> "$LOG"
+sync
+exit $rc

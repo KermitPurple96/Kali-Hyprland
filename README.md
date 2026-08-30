@@ -4,6 +4,22 @@ A complete Kali Linux desktop configuration repository with both **Hyprland** (m
 
 ![Preview](field1.jpg)
 
+> ### Running in a VMware VM? Read this first.
+>
+> Hyprland 0.56 (what Kali ships) needs extra work in a VM, and the plain
+> install below is **not** enough — you get a desktop where the mouse works and
+> the keyboard is dead, with no way out but powering off the guest.
+>
+> ```bash
+> cd vmware && ./install-vmware.sh
+> ```
+>
+> Root cause, every change, and the dead ends already ruled out are written up
+> in **[VMWARE-NOTES.md](VMWARE-NOTES.md)**. Two things that bite immediately:
+> Hyprland 0.56 reads **`hyprland.lua`** and ignores `hyprland.conf` outright,
+> and `fix-hyprland-vmware.sh` is obsolete (it sets wlroots variables that 0.56
+> does not use).
+
 ##  Two Setups in One Repository
 
 ### Hyprland (Wayland) - Recommended ⭐
@@ -63,7 +79,7 @@ The installer will ask you which setup you want:
 ```
 .config/
 ├── hypr/
-│   └── hyprland.conf      # Main Hyprland config
+│   └── hyprland.conf      # Main Hyprland config (pre-0.56 only; 0.56 uses hyprland.lua)
 ├── waybar/
 │   ├── config             # Waybar configuration
 │   └── style.css          # Waybar styling
@@ -128,7 +144,7 @@ Both setups use `Super` (Windows key) as the main modifier.
 ### Hyprland
 
 #### Change Colors
-Edit `~/.config/hypr/hyprland.conf`:
+Edit `~/.config/hypr/hyprland.conf` (on Hyprland 0.56 edit `hyprland.lua` instead):
 ```conf
 col.active_border = rgba(43a047ee)  # Active border (green)
 col.inactive_border = rgba(333333aa) # Inactive border
@@ -245,11 +261,11 @@ export PATH="$HOME/.local/bin:$PATH"
 | Learning Curve |  Medium |  Medium |
 | App Compatibility | ️ Most apps (XWayland) |  All X11 apps |
 | Gaming |  Good |  Good |
-| VM Support | ️ May have issues |  Excellent |
+| VM Support |  Works, see [VMWARE-NOTES.md](VMWARE-NOTES.md) |  Excellent |
 
 **Recommendation:**
 - **Physical machine → Hyprland** (better performance, modern features)
-- **Virtual machine → i3-gaps** (better compatibility)
+- **Virtual machine → either**; for Hyprland run `vmware/install-vmware.sh` first
 
 ##  Tips
 
@@ -272,9 +288,17 @@ Kali-Hyprland/
 │   ├── rofi/           # Rofi config
 │   ├── alacritty/      # Alacritty config
 │   └── kitty/          # Kitty config
+├── vmware/             # VMware guest deploy (Hyprland 0.56)
+│   ├── install-vmware.sh       # Run this in a VM
+│   ├── start-hyprland-vmware   # Session launcher (fixes the input race)
+│   ├── hyprland.lua            # Hyprland 0.56 config (Lua, not .conf)
+│   ├── hyprland.desktop        # LightDM session entry
+│   ├── hyprland-diag.desktop   # Self-exiting diagnostic session
+│   └── 02-default-session.conf # Make Hyprland the LightDM default
 ├── .wallpaper/         # Wallpaper directory
 ├── .fehbg              # Wallpaper setter script
 ├── install.sh          # Installation script
+├── VMWARE-NOTES.md     # VM root-cause writeup
 ├── README.md           # This file
 └── field1.jpg          # Preview image
 ```
