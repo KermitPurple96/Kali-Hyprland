@@ -148,7 +148,8 @@ apt_install \
     ruby-dev cargo \
     grc lolcat moreutils coreutils cryptsetup ncdu locate \
     ripgrep jq unzip curl wget git zsh gum \
-    xclip wl-clipboard
+    xclip wl-clipboard \
+    unrar strace
 
 # wpscan: the Kali package has been broken for a while; config.sh removes it
 # and installs the gem instead.
@@ -286,6 +287,14 @@ if ! have nvim; then
     fetch https://github.com/neovim/neovim/releases/download/v0.11.6/nvim-linux-x86_64.appimage "$TMP/nvim" \
         && run sudo install -m755 "$TMP/nvim" /usr/local/bin/nvim
 else ok "nvim present"; fi
+
+# jump -- config.sh had this commented out, but config.fish uses it:
+# `pin`, `unpin` and the `pins` alias all call it, so without it those
+# three fail with "command not found".
+if ! have jump; then
+    fetch https://github.com/gsamokovarov/jump/releases/download/v0.51.0/jump_linux_amd64_binary "$TMP/jump" \
+        && run sudo install -m755 "$TMP/jump" /usr/local/bin/jump
+else ok "jump present"; fi
 
 # powershell
 if ! have pwsh; then

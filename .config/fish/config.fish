@@ -516,7 +516,13 @@ function extract
                 case "*.bz2"
                     bunzip2 $archive
                 case "*.rar"
-                    rar x $archive
+                    # Kali trae 'unrar', no 'rar' (rar es de pago y no esta
+                    # empaquetado). Se usa unrar y se cae a rar si existiera.
+                    if command -q unrar
+                        unrar x $archive
+                    else
+                        rar x $archive
+                    end
                 case "*.gz"
                     gunzip $archive
                 case "*.tar"
@@ -858,7 +864,10 @@ function fast
         return 1
     end
 
-    fastTCPscan -host=$argv[1] -threads=$argv[2]
+    # El binario que construye tools.sh se llama fastTCPScan (S mayuscula).
+    # Estaba escrito 'fastTCPscan' y por eso 'fast' fallaba con
+    # 'command not found'. Linux distingue mayusculas.
+    fastTCPScan -host=$argv[1] -threads=$argv[2]
 end
 
 
