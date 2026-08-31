@@ -122,6 +122,22 @@ ok "ok"
 # One bad package name must not abort the whole install. This is exactly how
 # the old script died: it asked for "polkit-mate", which does not exist in
 # Kali (the package is "mate-polkit"), and `set -e` took the rest with it.
+#
+# The other way a fresh Kali box dies here: kali-rolling's mirror redirector
+# can hand two consecutive requests to mirrors that are out of sync with
+# each other, so a package listed by `apt update` 404s on fetch ("Unable to
+# fetch some archives, maybe run apt-get update or try with --fix-missing?").
+# `set -e` turned that into a dead install needing a full manual re-run --
+# sometimes several, one per flaky package. Retry once with a fresh list and
+# --fix-missing before actually giving up.
+apt_retry() {
+    if ! sudo apt "$@"; then
+        warn "apt $1 failed (likely a stale/out-of-sync mirror) -- refreshing and retrying with --fix-missing"
+        sudo apt update
+        sudo apt --fix-missing "$@"
+    fi
+}
+
 apt_install() {
     local want=() skip=() p
     for p in "$@"; do
@@ -135,7 +151,7 @@ apt_install() {
         [ -n "$p" ] && warn "not in apt on this release, skipping: $p"
     done
     if [ ${#want[@]} -gt 0 ]; then
-        sudo apt install -y "${want[@]}"
+        apt_retry install -y "${want[@]}"
     fi
 }
 
@@ -145,7 +161,7 @@ sudo apt update
 
 if [ "$SKIP_UPGRADE" -eq 0 ]; then
     hdr "Upgrading installed packages (--skip-upgrade to skip)"
-    sudo apt upgrade -y
+    apt_retry upgrade -y
 else
     info "skipped"
 fi
