@@ -65,27 +65,27 @@
         "separate-outputs": true
     },
 
-    // [vpn_status.sh] label=󱎔 color=#38DE07 interval=5
+    // [vpn_status.sh] label= color=#38DE07 interval=5
     "custom/vpn": {
         "interval": 5,
         "exec": "$HOME/.config/waybar/scripts/vpn.sh",
-        "format": "󱎔 {}",
+        "format": " {}",
         "tooltip": false
     },
 
-    // [ethernet_status.sh] label= color=#2495e7 interval=5
+    // [ethernet_status.sh] label= color=#2495e7 interval=5
     "custom/ethernet": {
         "interval": 5,
         "exec": "$HOME/.config/waybar/scripts/ethernet.sh",
-        "format": " {}",
+        "format": " {}",
         "tooltip": false
     },
 
-    // [access_point.sh] label=泌 color=#2495e7 interval=5
+    // [access_point.sh] label=泌 color=#2495e7 interval=5
     "custom/gateway": {
         "interval": 5,
         "exec": "$HOME/.config/waybar/scripts/gateway.sh",
-        "format": "泌 {}",
+        "format": "泌 {}",
         "tooltip": false
     },
 
@@ -105,46 +105,46 @@
         "tooltip": false
     },
 
-    // [target.sh] label=什 color=#ff0000 interval=5
+    // [target.sh] label=什 color=#ff0000 interval=5
     "custom/target": {
         "interval": 5,
         "exec": "$HOME/.config/waybar/scripts/target.sh",
-        "format": "什 {}",
+        "format": "什 {}",
         "tooltip": false
     },
 
-    // [session.sh] label=  color=#FFFF00 interval=5
+    // [session.sh] label= color=#FFFF00 interval=5
     "custom/session": {
         "interval": 5,
         "exec": "$HOME/.config/waybar/scripts/session.sh",
-        "format": " {}",
+        "format": " {}",
         "tooltip": false
     },
 
-    // [cpu_usage] label= CPU interval=5
-    "cpu": { "interval": 5, "format": " CPU {usage}%", "tooltip": false },
+    // [cpu_usage] label= CPU interval=5
+    "cpu": { "interval": 5, "format": " CPU {usage}%", "tooltip": false },
 
-    // [memory] label= RAM interval=10
+    // [memory] label= RAM interval=10
     "memory": {
         "interval": 10,
-        "format": " RAM {percentage}%",
+        "format": " RAM {percentage}%",
         "tooltip-format": "{used:0.1f}G used of {total:0.1f}G"
     },
 
-    // [disk] label= Disk interval=240
+    // [disk] label= Disk interval=240
     "disk": {
         "interval": 240,
         "path": "/",
-        "format": " Disk {free}",
+        "format": " Disk {free}",
         "tooltip-format": "{used} used of {total} on {path}"
     },
 
     "tray": { "icon-size": 16, "spacing": 8 },
 
-    // [time] command=date '+%A, %d %B %Y %H:%M:%S ' interval=1
+    // [time] label= command=date '+%A, %d %B %Y %H:%M:%S ' interval=1
     "clock": {
         "interval": 1,
-        "format": " {:%A, %d %B %Y %H:%M:%S}",
+        "format": " {:%A, %d %B %Y %H:%M:%S}",
         "tooltip-format": "<big>{:%Y %B}</big>\n<tt><small>{calendar}</small></tt>"
     }
 }
