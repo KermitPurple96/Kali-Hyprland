@@ -177,7 +177,8 @@ apt_install \
     curl \
     wget \
     unzip \
-    git
+    git \
+    zoxide
 
 # ----------------------------------------------------------------- fonts ---
 # These configs name three families:
@@ -289,6 +290,29 @@ else
     warn "the next image in ~/.wallpaper, or to a flat #1C1D2B background"
 fi
 
+# -------------------------------------------------------------- i3blocks ---
+# The pentest status blocks. i3blocks resolves a bare block name to
+# /usr/share/i3blocks/$BLOCK_NAME, so these have to be there, not in $HOME.
+# fish's `iface`/`mip` functions and its VPN/iface startup checks read from
+# here too (see .config/fish/config.fish), regardless of which session gets
+# installed, so this has to run for a Hyprland-only install as well -- not
+# just under --i3. (waybar's own scripts under ~/.config/waybar/scripts
+# detect the interface themselves and do not need this file.)
+hdr "Installing i3blocks scripts"
+info "installing i3blocks scripts -> /usr/share/i3blocks/"
+sudo mkdir -p /usr/share/i3blocks
+for f in "$REPO"/usr/share/i3blocks/*.sh; do
+    sudo install -m 755 "$f" /usr/share/i3blocks/
+done
+# The interface name the ethernet/gateway blocks read. Default it to
+# whatever actually carries the default route rather than a hardcoded
+# eth0, which is wrong on most VMs (ens33, enp0s3...).
+if [ ! -s /usr/share/i3blocks/iface ]; then
+    detected=$(ip route show default 2>/dev/null | awk '/default/{print $5; exit}')
+    printf '%s\n' "${detected:-eth0}" | sudo tee /usr/share/i3blocks/iface >/dev/null
+    info "i3blocks iface = ${detected:-eth0}"
+fi
+
 # ---------------------------------------------------------------- i3 (X11) --
 if [ "$INSTALL_I3" = true ]; then
     hdr "Installing i3 (X11)"
@@ -323,24 +347,6 @@ if [ "$INSTALL_I3" = true ]; then
     cp -r "$REPO"/.config/compton/. "$HOME/.config/compton/"
     cp -r "$REPO"/.config/rofi/.    "$HOME/.config/rofi/"
     chmod +x "$HOME/.config/i3/clipboard_fix.sh" 2>/dev/null || true
-
-    # The pentest status blocks. i3blocks resolves a bare block name to
-    # /usr/share/i3blocks/$BLOCK_NAME, so these have to be there, not in
-    # $HOME. (Under Hyprland the same logic lives in
-    # ~/.config/waybar/scripts and needs no root.)
-    info "installing i3blocks scripts -> /usr/share/i3blocks/"
-    sudo mkdir -p /usr/share/i3blocks
-    for f in "$REPO"/usr/share/i3blocks/*.sh; do
-        sudo install -m 755 "$f" /usr/share/i3blocks/
-    done
-    # The interface name the ethernet/gateway blocks read. Default it to
-    # whatever actually carries the default route rather than a hardcoded
-    # eth0, which is wrong on most VMs (ens33, enp0s3...).
-    if [ ! -s /usr/share/i3blocks/iface ]; then
-        detected=$(ip route show default 2>/dev/null | awk '/default/{print $5; exit}')
-        printf '%s\n' "${detected:-eth0}" | sudo tee /usr/share/i3blocks/iface >/dev/null
-        info "i3blocks iface = ${detected:-eth0}"
-    fi
 
     # i3-workspace-names-daemon puts an app glyph next to each workspace
     # number (i3/app-icons.json). pip, because it is not packaged.

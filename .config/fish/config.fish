@@ -30,7 +30,7 @@ set -g fondogris "\e[0;47m\033[1m"
 
 
 # Export PATH
-set -g PATH $PATH $HOME/.local/bin /usr/bin/ /usr/share/responder /usr/share/ghidra /usr/share/hydra /usr/share/libreoffice /snap/bin /usr/sandbox /usr/local/bin /usr/local/go/bin /bin /usr/local/games /usr/games /usr/share/games /usr/local/sbin /usr/sbin /sbin /usr/local/bin /bin /usr/local/games /usr/games $HOME/.fzf/bin /opt/exploitdb $HOME/.local/bin /usr/share/metasploit-framework/tools/exploit /usr/bin/arsenal /usr/bin/gtfo $HOME/.fzf/bin /usr/share/Wordpresscan $HOME/.local/pipx/shared/bin $HOME/go/bin /usr/bin/pwsh $HOME/kitty.app/bin /home/kermit/dev/python /home/kermit/dev/bash /home/kermit/OSCP-PythonSupportTools $HOME/.cargo/bin /usr/local/bin/lua-language-server/bin /home/kermit/thc-ipv6
+set -g PATH $PATH $HOME/.local/bin /usr/bin/ /usr/share/responder /usr/share/ghidra /usr/share/hydra /usr/share/libreoffice /snap/bin /usr/sandbox /usr/local/bin /usr/local/go/bin /bin /usr/local/games /usr/games /usr/share/games /usr/local/sbin /usr/sbin /sbin /usr/local/bin /bin /usr/local/games /usr/games $HOME/.fzf/bin /opt/exploitdb $HOME/.local/bin /usr/share/metasploit-framework/tools/exploit /usr/bin/arsenal /usr/bin/gtfo $HOME/.fzf/bin /usr/share/Wordpresscan $HOME/.local/pipx/shared/bin $HOME/go/bin $HOME/kitty.app/bin /home/kermit/dev/python /home/kermit/dev/bash /home/kermit/OSCP-PythonSupportTools $HOME/.cargo/bin /usr/local/bin/lua-language-server/bin /home/kermit/thc-ipv6
 
 set _OLD_VIRTUAL_PATH "$PATH"
 
@@ -38,9 +38,15 @@ set _OLD_VIRTUAL_PATH "$PATH"
 set -gx ip (cat /home/kermit/.config/bin/target.txt)
 set -gx name (cat /home/kermit/.config/bin/target_sys.txt)
 set -gx _JAVA_AWT_WM_NONREPARENTING 1
-set -gx wpscan (cat /home/kermit/wpscan_key)
-set -gx wpscan (cat /home/kermit/shodan_key)
-set -gx PDCP_API_KEY (cat /home/kermit/CVEmap_key)
+if test -f /home/kermit/wpscan_key
+    set -gx wpscan (cat /home/kermit/wpscan_key)
+end
+if test -f /home/kermit/shodan_key
+    set -gx shodan (cat /home/kermit/shodan_key)
+end
+if test -f /home/kermit/CVEmap_key
+    set -gx PDCP_API_KEY (cat /home/kermit/CVEmap_key)
+end
 
 
 
