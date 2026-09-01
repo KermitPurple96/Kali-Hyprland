@@ -194,7 +194,8 @@ apt_install \
     wget \
     unzip \
     git \
-    zoxide
+    zoxide \
+    lsd
 
 # ----------------------------------------------------------------- fonts ---
 # These configs name three families:

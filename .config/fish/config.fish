@@ -355,11 +355,12 @@ end
 #set -gx miipk (/usr/sbin/ifconfig | grep eth0 -A1 | grep inet | awk '{print $2}')
 
 function update_ip
+  if not test -f /usr/share/i3blocks/iface
+    return
+  end
   set interface (cat /usr/share/i3blocks/iface)
-  if ifdata -e $interface
+  if test -n "$interface"; and ifdata -e $interface
     set -gx miipk (/usr/sbin/ifconfig $interface | grep inet | awk '{print $2}' | head -n 1)
-    #else 
-    #echo -e (set_color red)"\n\t[-] Error"(set_color normal)" check /usr/share/i3blocks/iface"
   end
 end
 
