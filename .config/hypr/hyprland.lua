@@ -188,6 +188,12 @@ hl.on("hyprland.start", function()
     -- watches for that and applies it.
     hl.exec_cmd("~/.config/hypr/scripts/vmware-autofit.sh")
 
+    -- vmtoolsd only bridges the X11 CLIPBOARD selection to the host, but
+    -- every client here is Wayland-native (xwayland: 0), so their
+    -- clipboard writes never reach it on their own. This mirrors the two
+    -- clipboards both ways so host<->guest copy/paste actually works.
+    hl.exec_cmd("~/.config/hypr/scripts/vmware-clipboard-bridge.sh")
+
     -- Hand the session environment to systemd/dbus so portals and tray work
     hl.exec_cmd("dbus-update-activation-environment --systemd WAYLAND_DISPLAY XDG_CURRENT_DESKTOP")
     hl.exec_cmd("systemctl --user import-environment WAYLAND_DISPLAY XDG_CURRENT_DESKTOP")

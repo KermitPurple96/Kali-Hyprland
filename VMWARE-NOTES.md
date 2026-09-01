@@ -217,6 +217,50 @@ Two things it has to get right, both found the hard way:
 The script holds a `flock` on `$XDG_RUNTIME_DIR/vmware-autofit.lock`, so a
 second copy exits silently rather than fighting the first over the output.
 
+---
+
+## Host<->guest copy/paste silently did nothing
+
+**Symptom.** `clipboard_fix.sh` runs, `vmtoolsd -n vmusr` is alive and well —
+and copying text in a guest window never shows up on the host, nor the other
+way around. No error anywhere; it just does nothing.
+
+**Root cause.** `vmtoolsd` only ever speaks X11: it watches the `CLIPBOARD`
+selection on XWayland's `:0`. That is the whole story in an i3 (pure X11)
+session, but every client in a Hyprland session is Wayland-native by
+default — `hyprctl clients` reports `xwayland: 0` for kitty, Firefox,
+everything — and Hyprland does not bridge the native Wayland clipboard to
+XWayland's on its own. Confirmed by hand:
+
+```
+$ echo -n test | wl-copy && DISPLAY=:0 xclip -selection clipboard -o
+Error: target STRING not available     <- Wayland write, invisible to X11
+
+$ echo -n test | DISPLAY=:0 xclip -selection clipboard && wl-paste
+(stale value from the previous wl-copy)  <- X11 write, invisible to Wayland
+```
+
+Neither direction crosses on its own, in either direction, so `vmtoolsd`
+never sees anything a real (Wayland-native) window puts on the clipboard,
+and nothing it pulls from the host ever reaches those windows either.
+
+**Fix.** `scripts/vmware-clipboard-bridge.sh`, autostarted from
+`hyprland.lua` right after `clipboard_fix.sh`: mirrors the two clipboards
+both ways.
+
+- **Wayland -> X11** is event-driven: `wl-paste --type text --watch` runs a
+  callback on every change, which pushes it into `xclip -selection
+  clipboard` on `:0`.
+- **X11 -> Wayland** has to poll. `wl-clipboard` has no equivalent of X11's
+  XFixes selection-owner-change event to hook, so this reconciles on an
+  interval instead — the same tradeoff `vmware-autofit.sh` already makes
+  for the display-resize gap above.
+- A shared "last value" file (`$XDG_RUNTIME_DIR/vmware-clipboard-bridge.last`)
+  stops the two legs echoing each other's own writes back and forth forever.
+
+Same `flock` pattern as `vmware-autofit.sh`, on its own lock file, so a
+second copy exits silently instead of stacking watchers.
+
 The monitor rule in `hyprland.lua` stays at `mode = "preferred"`. It is the
 right thing on real hardware, and the watcher corrects it here.
 
