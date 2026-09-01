@@ -579,11 +579,6 @@ cat <<'HYPR'
 
       cd vmware && ./update-system.sh
 
-  and the FIRST time pick "Hyprland (safe test)". It arms a 120-second
-  dead-man's switch: press CTRL+ALT+O to keep the session, and if you
-  cannot -- black screen, dead keyboard, anything -- it ends itself and
-  returns you to the greeter. No power cycle.
-
   CTRL+ALT+F3 always gives you a text console; Hyprland handles that one
   internally through logind, so it works even if every keybind is broken.
 

@@ -39,13 +39,13 @@ sudo install -m 644 "$HERE/hyprland-diag.desktop" /usr/share/wayland-sessions/hy
 # even that drags, reachable from the login screen instead of from a config
 # file you may not be able to open.
 sudo install -m 644 "$HERE/hyprland-lite.desktop" /usr/share/wayland-sessions/hyprland-lite.desktop
-# "Hyprland (safe test)": the entry to use the FIRST time. Arms a 120s
-# dead-man's switch, so a session you cannot see or type in ends by itself
-# instead of costing you a power cycle.
-sudo install -m 644 "$HERE/hyprland-test.desktop" /usr/share/wayland-sessions/hyprland-test.desktop
 # uwsm is not packaged in Kali, so the entry Hyprland ships is a dead option
 # that drops you straight back to the greeter. Remove it.
 sudo rm -f /usr/share/wayland-sessions/hyprland-uwsm.desktop
+# "Hyprland (safe test)" is gone along with the dead-man's switch it armed.
+# Drop the entry an earlier install may have left behind, so the greeter
+# does not offer a session that no longer exists.
+sudo rm -f /usr/share/wayland-sessions/hyprland-test.desktop
 
 echo "==> 4/6 desktop config -> ~/.config"
 # One config, shared with the bare-metal install: ../.config/hypr/hyprland.lua.
@@ -99,11 +99,7 @@ fi
 
 cat <<'DONE'
 
-Done. The FIRST time, log out and pick "Hyprland (safe test)".
-
-That session arms a 120-second dead-man's switch: press CTRL+ALT+O to keep
-it, and if you cannot -- black screen, dead keyboard, anything -- it ends
-itself and hands you back to the login screen. No power cycle.
+Done. Log out and pick "Hyprland" at the login screen.
 
 At ANY time, CTRL+ALT+F3 switches to a text console. Hyprland handles that
 internally through logind, so it works even when every other keybind does

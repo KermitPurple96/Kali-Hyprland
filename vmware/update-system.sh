@@ -45,7 +45,7 @@ echo "==> 2/5 session launcher -> /usr/local/bin/start-hyprland-vmware"
 sudo install -m 755 "$HERE/start-hyprland-vmware" /usr/local/bin/start-hyprland-vmware
 
 echo "==> 3/5 session entries -> /usr/share/wayland-sessions/"
-for entry in hyprland hyprland-lite hyprland-test hyprland-diag; do
+for entry in hyprland hyprland-lite hyprland-diag; do
     sudo install -m 644 "$HERE/$entry.desktop" "/usr/share/wayland-sessions/$entry.desktop"
     echo "    $entry.desktop"
 done
@@ -73,15 +73,16 @@ else
     echo "    not present"
 fi
 
+# "Hyprland (safe test)" is gone along with the dead-man's switch it armed.
+# An earlier update installed it, so drop any copy still on this machine.
+if [ -e /usr/share/wayland-sessions/hyprland-test.desktop ]; then
+    sudo rm -f /usr/share/wayland-sessions/hyprland-test.desktop
+    echo "    removed stale hyprland-test.desktop"
+fi
+
 cat <<'DONE'
 
-Done. Log out, and at the login screen pick:
-
-    Hyprland (safe test)   <- use this FIRST
-
-It arms a 120-second dead-man's switch. Press CTRL+ALT+O to keep the
-session; if you cannot -- black screen, dead keyboard, anything -- it ends
-itself and returns you here. No power cycle.
+Done. Log out, and at the login screen pick "Hyprland".
 
 At any moment, CTRL+ALT+F3 gives you a text console. Hyprland handles that
 one internally through logind, so it works even if every keybind is broken.
@@ -91,6 +92,5 @@ Log in there and run:
 
 then CTRL+ALT+F7 to come back to the login screen.
 
-Once you are happy, use plain "Hyprland". If it feels heavy, use
-"Hyprland (lite)".
+If it feels heavy, use "Hyprland (lite)".
 DONE

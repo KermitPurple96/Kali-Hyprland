@@ -201,12 +201,6 @@ hl.on("hyprland.start", function()
     -- Rescue terminal. Cheap insurance: if keybinds ever fail to register
     -- again you still land in a usable window instead of a bare desktop.
     hl.exec_cmd(terminal)
-
-    -- Dead-man's switch. No-op unless the session was started with
-    -- HYPR_SAFETY=<seconds> (the "Hyprland (safe test)" login entry sets
-    -- 120). If nobody presses CTRL+ALT+O in time, the session ends itself
-    -- rather than stranding you in front of something you cannot exit.
-    hl.exec_cmd("~/.config/hypr/scripts/safety-net.sh")
 end)
 
 -------------------------------
@@ -580,12 +574,6 @@ local mainMod = "SUPER"
 hl.bind("CTRL + ALT + T",         hl.dsp.exec_cmd(terminal), { submap_universal = true })
 hl.bind("ALT + Return",           hl.dsp.exec_cmd(terminal), { submap_universal = true })
 hl.bind("CTRL + ALT + BackSpace", hl.dsp.exit(),             { submap_universal = true })
-
--- Confirm a session started with HYPR_SAFETY=<seconds> is actually usable.
--- Pressing this proves libinput bound a keyboard AND that binds registered
--- -- the two things that have really broken here -- so it is the right
--- gesture to gate an auto-exit on.
-hl.bind("CTRL + ALT + O", hl.dsp.exec_cmd("~/.config/hypr/scripts/safety-net.sh --ok"), { submap_universal = true })
 
 -- --- Launching / killing ---------------------------------------------------
 -- i3: bindsym $mod+Return exec alacritty  (kitty here, for the blur)

@@ -145,24 +145,19 @@ It only touches the files in its manifest, so nothing unrelated wanders in.
 
 ## 2. First run — do not lose your session
 
-**Use "Hyprland (safe test)" the first time.** It arms a 120-second
-dead-man's switch: press `CTRL+ALT+O` to keep the session, and if you cannot
-— black screen, dead keyboard, anything — it ends itself and returns you to
-the greeter. No power cycle.
-
-To test without logging out of your current desktop at all, switch to a free
-VT instead:
+To test without logging out of your current desktop at all, start the session
+from a free VT:
 
 ```
 CTRL+ALT+F3        log in there
-HYPR_SAFETY=120 /usr/local/bin/start-hyprland-vmware
+/usr/local/bin/start-hyprland-vmware
 CTRL+ALT+F7        back to where you were
 ```
 
 `CTRL+ALT+F3` normally gives you a console even from inside Hyprland — it is
 handled internally through logind. The one case it does *not* cover is
 libinput failing to bind a keyboard at all, since then no keystroke reaches
-Hyprland. That is exactly what `HYPR_SAFETY` is for.
+Hyprland; that leaves powering the VM off.
 
 If input dies, `~/hyprland-diag.txt` states the verdict in plain words within
 ~12 seconds, and `~/hyprland-last.log` survives a hard power-off.
@@ -182,7 +177,6 @@ If the host grabs the Super key, or a bind fails to register, these still work.
 | `CTRL + ALT + T` | Terminal |
 | `ALT + Enter` | Terminal |
 | `CTRL + ALT + Backspace` | Exit Hyprland cleanly |
-| `CTRL + ALT + O` | Confirm a `HYPR_SAFETY` session (keep it alive) |
 | `CTRL + ALT + F3` | Text console (handled by logind, needs no bind) |
 
 ### Launching
@@ -452,8 +446,7 @@ sync.sh                    capture ~/.config back into the repo
 ├── hypr/
 │   ├── hyprland.lua       the config (Hyprland 0.51+)
 │   └── scripts/           wallpaper, screenshot, launcher, dmenu, clipboard,
-│                          exit, firefox, workspace-rename/clear, polkit,
-│                          safety-net
+│                          exit, firefox, workspace-rename/clear, polkit
 ├── waybar/                bar + the seven pentest scripts
 ├── fuzzel/  wofi/  dunst/ launcher and notifications
 ├── kitty/   fish/  nvim/  terminal, shell, editor

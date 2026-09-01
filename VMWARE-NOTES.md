@@ -304,11 +304,10 @@ pkill -x Hyprland     # then Ctrl+Alt+F7 back to the display manager
 ```
 
 **What it does not cover:** if libinput never bound a keyboard, no keystroke
-reaches Hyprland at all, `Ctrl+Alt+F3` included. That is what the
-"Hyprland (safe test)" session entry is for — `HYPR_SAFETY=120` arms a
-dead-man's switch that ends the session on its own unless `CTRL+ALT+O` is
-pressed. A confirmation that requires a keybind is a confirmation that a
-keyboard-less session cannot give, which is precisely the property wanted.
+reaches Hyprland at all, `Ctrl+Alt+F3` included. Nothing inside the session
+can help there — recovering means powering the VM off. The evidence written
+to `~/hyprland-diag.txt` and `~/hyprland-last.log` (below) is what survives
+that, and it is what the input-race fix at the top of these notes prevents.
 
 ---
 
