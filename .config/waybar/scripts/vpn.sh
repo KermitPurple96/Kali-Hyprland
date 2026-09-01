@@ -27,6 +27,9 @@ set -u
 
 TTL=300
 RUNDIR="${XDG_RUNTIME_DIR:-/tmp}"
+# Shared with usr/share/i3blocks/vpn_status.sh on purpose: the answer does
+# not depend on which session asked, so whichever bar ran last saves the
+# other a lookup.
 CACHE="$RUNDIR/egress-ip"
 
 # waybar reads one JSON object per line. Every value below is an IP, an

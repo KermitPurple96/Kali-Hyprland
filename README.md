@@ -321,6 +321,14 @@ it refetches immediately instead of showing a stale address. If the lookup
 fails the last known address is shown with a trailing `?` rather than
 silently going blank. Hover for the full story.
 
+The i3 session's block (`usr/share/i3blocks/vpn_status.sh`) does the same
+thing, in i3blocks' own three-line protocol — the third line overrides the
+block's `color=`, which is how one block shows three states, and the icon
+rides in `full_text`, which is why `[vpn_status.sh]` carries no `label=`.
+Both scripts share one cache in `$XDG_RUNTIME_DIR/egress-ip`, so the answer
+does not depend on which session asked and whichever bar ran last saves the
+other a lookup. Change one, change the other.
+
 Set them from a shell:
 
 ```bash
