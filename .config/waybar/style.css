@@ -119,8 +119,13 @@ window#waybar.empty #window {
 
 /* Colours straight out of i3-kitty's i3blocks.conf `color=` lines. */
 
-/* [vpn_status.sh]      color=#38DE07 */
-#custom-vpn        { color: #38DE07; }
+/* [vpn_status.sh]      color=#38DE07 -- green only when a VPN is actually
+   carrying us. Amber when traffic is going out raw under our own public
+   address, red when nothing is going out at all. The class comes from the
+   script; see scripts/vpn.sh. */
+#custom-vpn          { color: #38DE07; }
+#custom-vpn.external { color: #ffa500; }
+#custom-vpn.offline  { color: #ff0000; }
 /* [ethernet_status.sh] color=#2495e7 */
 #custom-ethernet   { color: #2495e7; }
 /* [access_point.sh]    color=#2495e7 */

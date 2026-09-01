@@ -65,12 +65,22 @@
         "separate-outputs": true
     },
 
-    // [vpn_status.sh] label= color=#38DE07 interval=5
+    // [vpn_status.sh] label= color=#38DE07 interval=5 -- reworked: the
+    // field now always names the address our traffic leaves with. VPN up,
+    // it is the tunnel address (, green); no VPN, it is the public
+    // address (, amber -- we are going out raw); no route at all,
+    // offline (, red). The icon comes from the script's "alt".
     "custom/vpn": {
         "interval": 5,
         "exec": "$HOME/.config/waybar/scripts/vpn.sh",
-        "format": " {}",
-        "tooltip": false
+        "return-type": "json",
+        "format": "{icon} {}",
+        "format-icons": {
+            "vpn": "",
+            "external": "",
+            "offline": ""
+        },
+        "tooltip": true
     },
 
     // [ethernet_status.sh] label= color=#2495e7 interval=5

@@ -286,7 +286,7 @@ same glyphs, same colours.
 
 | Module | Source | Reads |
 |---|---|---|
-| VPN | `vpn_status.sh` | `tun0`, then `tap0` |
+| Egress IP | `vpn.sh` | the VPN interface, else our public address |
 | Ethernet | `ethernet_status.sh` | `/usr/share/i3blocks/iface`, else the default route |
 | Gateway | `access_point.sh` | default route |
 | Domain | `domain.sh` | `~/.config/bin/domain.txt` |
@@ -294,6 +294,32 @@ same glyphs, same colours.
 | Target | `target.sh` | `~/.config/bin/target.txt` |
 | Session | `session.sh` | `~/.config/bin/session.txt` (epoch) |
 | CPU / RAM / Disk / Clock | i3blocks built-ins | — |
+
+### Egress IP — which address are we leaving with?
+
+The old `vpn_status.sh` answered "is `tun0` up?" and said `Disconnected`
+otherwise, which is the least useful thing it could say: with no VPN you are
+still sending traffic somewhere, under some address, and that is exactly when
+you want to know what it is. The module now always names the address our
+traffic carries, and the icon says which kind it is:
+
+| | State | Shows |
+|---|---|---|
+|  green | VPN up | the tunnel address — `tun`/`tap` (OpenVPN), `wg` (WireGuard), `ppp` |
+|  amber | no VPN | our public address — we are going out raw |
+|  red | no route | offline, or the public address could not be resolved |
+
+It reports the tunnel address whenever a VPN interface is up, *not* whichever
+interface owns the default route. On an HTB or OffSec VPN the default route
+stays on the WAN and only the lab subnet is pushed through `tun0` — the
+tunnel address is still the one the targets see, so it is the one to show.
+
+The public address costs a network round trip and the bar ticks every 5s, so
+it is cached for 5 minutes in `$XDG_RUNTIME_DIR`. The cache is keyed on the
+default route as well as on time: drop the VPN or move to another network and
+it refetches immediately instead of showing a stale address. If the lookup
+fails the last known address is shown with a trailing `?` rather than
+silently going blank. Hover for the full story.
 
 Set them from a shell:
 
