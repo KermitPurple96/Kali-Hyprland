@@ -4,14 +4,16 @@ The [i3-kitty](https://github.com/KermitPurple96/i3-kitty) desktop, moved to
 Wayland. Same palette, same gaps, the same keybindings — plus the three
 things i3 could never do: real window animations, rounded corners and blur.
 
-Both sessions are supported: **Hyprland** (Wayland) and the original **i3**
-(X11). You pick one at the login screen.
+**Hyprland only.** i3-kitty's original i3/X11 session lived here for a while
+as a second, optional session, but nobody was still choosing it, so it came
+out along with `compton`, `rofi` and the i3blocks scripts — `git log` has
+it if you ever need it back.
 
 | | |
 |---|---|
 | **Compositor** | Hyprland 0.56 (Lua config) |
 | **Bar** | Waybar — the i3blocks pentest modules, ported |
-| **Launcher** | fuzzel (falls back to wofi, then rofi) |
+| **Launcher** | fuzzel (falls back to wofi) |
 | **Terminal** | kitty |
 | **Notifications** | dunst |
 | **Wallpaper** | swaybg — John Martin, *Le Pandemonium* |
@@ -34,25 +36,20 @@ hand only to re-apply or change the theme.
 ### `./install.sh` — the desktop
 
 ```bash
-./install.sh                 # interactive: Hyprland, i3, or both
-./install.sh --hyprland      # no questions asked
-./install.sh --i3
-./install.sh --both
-./install.sh --all           # both + Oh My Zsh + the VMware session entries
+./install.sh                 # install everything
+./install.sh --all           # + the VMware session entries
 ```
 
 | Flag | Effect |
 |---|---|
-| `--hyprland` / `--i3` / `--both` | choose the session without being asked |
-| `--all` | `--both` + Oh My Zsh + `--vmware` |
 | `-y`, `--yes` | answer yes to every prompt |
-| `--no-zsh` | never install Oh My Zsh |
+| `--all` | `-y` + `--vmware` |
 | `--vmware` | also run `vmware/update-system.sh` |
 | `--skip-upgrade` | skip `apt upgrade` (still does `apt update`) |
 | `NERD_VER=v3.4.0 ./install.sh` | different Nerd Fonts release (default `v2.1.0`) |
 
-Safe to re-run: existing `~/.config/{hypr,waybar,wofi,dunst,fuzzel,i3,…}`
-are moved aside as `<name>.backup.<timestamp>` first, and a package missing
+Safe to re-run: existing `~/.config/{hypr,waybar,wofi,dunst,fuzzel,…}` are
+moved aside as `<name>.backup.<timestamp>` first, and a package missing
 from your Kali release is reported and skipped instead of aborting the run.
 
 It installs the desktop, the fonts, the configs, and the Wayland
@@ -83,13 +80,13 @@ i3-kitty's `config.sh`, reworked for a Hyprland box.
 Every step checks for what it installs first, so re-running is cheap.
 
 **No security tool was cut.** What *was* dropped is the X11 desktop
-scaffolding: `config.sh` names 141 apt packages and 41 of them exist only to
-support an i3 desktop — `i3`/`i3blocks`, `compton`, `rofi`/`dmenu`,
-`xsel`/`xdotool`, `unclutter`, `arandr`, `lxappearance`, `flameshot`, `feh`,
-`fonts-font-awesome`, `snapd`, plus the whole i3-gaps build chain (`meson`,
-`ninja-build`, `autoconf` and ~25 `libxcb-*-dev`) for a compile that upstream
-i3 made unnecessary in 4.22. Choose the i3 session in `install.sh` and they
-all come back — they live in that branch now.
+scaffolding: `config.sh` names 141 apt packages and 38 of them exist only to
+support an i3 desktop this repo no longer installs — `i3`/`i3blocks`,
+`compton`, `rofi`/`dmenu`, `xsel`/`xdotool`, `unclutter`, `arandr`,
+`lxappearance`, `flameshot`, `feh`, `fonts-font-awesome`, `snapd`, plus the
+whole i3-gaps build chain (`meson`, `ninja-build`, `autoconf` and ~25
+`libxcb-*-dev`) for a compile that upstream i3 made unnecessary in 4.22. See
+`./tools.sh --voided` for the full accounting.
 
 `tools.sh` also deliberately does **not** reboot, does **not** run `chsh`,
 and does **not** start BloodHound's `docker-compose up` in the foreground.
@@ -295,13 +292,13 @@ same glyphs, same colours.
 | Module | Source | Reads |
 |---|---|---|
 | Egress IP | `vpn.sh` | the VPN interface, else our public address |
-| Ethernet | `ethernet_status.sh` | `/usr/share/i3blocks/iface`, else the default route |
-| Gateway | `access_point.sh` | default route |
+| Ethernet | `ethernet.sh` | `/usr/share/i3blocks/iface`, else the default route |
+| Gateway | `gateway.sh` | default route |
 | Domain | `domain.sh` | `~/.config/bin/domain.txt` |
 | Target OS | `target_sys.sh` | `~/.config/bin/ttl.txt` + `target_sys.txt` |
 | Target | `target.sh` | `~/.config/bin/target.txt` |
 | Session | `session.sh` | `~/.config/bin/session.txt` (epoch) |
-| CPU / RAM / Disk / Clock | i3blocks built-ins | — |
+| CPU / RAM / Disk / Clock | waybar built-ins | — |
 
 ### Egress IP — which address are we leaving with?
 
@@ -329,14 +326,6 @@ it refetches immediately instead of showing a stale address. If the lookup
 fails the last known address is shown with a trailing `?` rather than
 silently going blank. Hover for the full story.
 
-The i3 session's block (`usr/share/i3blocks/vpn_status.sh`) does the same
-thing, in i3blocks' own three-line protocol — the third line overrides the
-block's `color=`, which is how one block shows three states, and the icon
-rides in `full_text`, which is why `[vpn_status.sh]` carries no `label=`.
-Both scripts share one cache in `$XDG_RUNTIME_DIR/egress-ip`, so the answer
-does not depend on which session asked and whichever bar ran last saves the
-other a lookup. Change one, change the other.
-
 Set them from a shell:
 
 ```bash
@@ -362,10 +351,6 @@ IP/gateway/domain/target are already sitting in the history to pick, with
 nothing to click first. `copy-field.sh` is the click handler (wired in as
 each module's `on-click`); `SUPER + ALT + C` (`clipboard-delete.sh`) removes
 an entry from that history the same way `SUPER + C` picks one out.
-
-The i3 session gets the click-to-copy half only — `xclip` via i3blocks'
-`BLOCK_BUTTON` click protocol (`usr/share/i3blocks/copy-to-clipboard.sh`) —
-since cliphist is Wayland-only; clipmenu is what i3-kitty used there instead.
 
 ---
 
@@ -461,7 +446,7 @@ then refuses to boot, and this config does not need it.
 | Floating window size | `FLOAT_W` / `FLOAT_H`, above the `SUPER+SHIFT+space` bind |
 | Launcher size | `width` (in **characters**) and `lines` in `.config/fuzzel/fuzzel.ini` |
 | Terminal transparency | `background_opacity` in `.config/kitty/kitty.conf` |
-| Wallpaper | `~/.fehbg` (i3) or `WALLPAPER=/path/to.jpg` (Hyprland) |
+| Wallpaper | `WALLPAPER=/path/to.jpg`, set before the session starts |
 | Keyboard layout | `kb_layout` — the only machine-specific line in the config |
 
 Reload with `SUPER + SHIFT + C`.
@@ -510,17 +495,13 @@ sync.sh                    capture ~/.config back into the repo
 │   ├── hyprland.lua       the config (Hyprland 0.51+)
 │   └── scripts/           wallpaper, screenshot, launcher, dmenu,
 │                          clipboard, clipboard-delete, exit, firefox,
-│                          workspace-rename/clear, polkit
+│                          vmware-clipboard-fix, workspace-rename/clear, polkit
 ├── waybar/                bar + the seven pentest scripts, plus
 │                          fields-clipboard.sh/copy-field.sh (click to copy)
 ├── fuzzel/  wofi/  dunst/ launcher and notifications
-├── kitty/   fish/  nvim/  terminal, shell, editor
-├── i3/  compton/  rofi/   the X11 session
-└── …
+└── kitty/   fish/  nvim/  terminal, shell, editor
 legacy/hyprland.conf       same setup in the pre-0.51 .conf format
 vmware/                    session launcher, login entries, apt hook
-usr/share/i3blocks/        the pentest blocks, for the i3 session, plus
-                            copy-to-clipboard.sh (click to copy, via xclip)
 ```
 
 **Which config file does Hyprland read?** 0.51+ reads `hyprland.lua`. 0.56

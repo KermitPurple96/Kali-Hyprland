@@ -59,7 +59,7 @@ REPO="$(cd "$HERE/.." && pwd)"
 STAMP="$(date +%Y%m%d_%H%M%S)"
 
 mkdir -p ~/.config/hypr/scripts ~/.config/waybar/scripts \
-         ~/.config/wofi ~/.config/dunst ~/.config/kitty ~/.config/i3 ~/.wallpaper
+         ~/.config/wofi ~/.config/dunst ~/.config/kitty ~/.wallpaper
 
 for f in ~/.config/hypr/hyprland.lua ~/.config/kitty/kitty.conf; do
     [ -f "$f" ] && cp "$f" "$f.bak.$STAMP"
@@ -74,7 +74,6 @@ install -m 644 "$REPO/.config/wofi/config"         ~/.config/wofi/config
 install -m 644 "$REPO/.config/wofi/style.css"      ~/.config/wofi/style.css
 install -m 644 "$REPO/.config/dunst/dunstrc"       ~/.config/dunst/dunstrc
 install -m 644 "$REPO/.config/kitty/kitty.conf"    ~/.config/kitty/kitty.conf
-install -m 755 "$REPO/.config/i3/clipboard_fix.sh" ~/.config/i3/clipboard_fix.sh
 cp -n "$REPO"/.wallpaper/* ~/.wallpaper/ 2>/dev/null || true
 
 echo "==> 5/6 Dracula theme and desktop settings"

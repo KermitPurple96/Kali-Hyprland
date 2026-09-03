@@ -167,8 +167,8 @@ hl.on("hyprland.start", function()
     -- Whichever polkit agent this box actually shipped
     hl.exec_cmd("~/.config/hypr/scripts/polkit-agent.sh")
 
-    -- i3-kitty's VM clipboard fix, unchanged
-    hl.exec_cmd("~/.config/i3/clipboard_fix.sh")
+    -- i3-kitty's VM clipboard fix (vmtoolsd restart), unchanged
+    hl.exec_cmd("~/.config/hypr/scripts/vmware-clipboard-fix.sh")
 
     -- i3-kitty: exec --no-startup-id clipmenud
     -- clipmenud is X11. cliphist is the Wayland store: wl-paste watches the

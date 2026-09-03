@@ -54,16 +54,10 @@ FILES="
 .config/fish/config.fish
 .config/fish/functions/fish_prompt.fish
 .config/fish/functions/tmux-help.fish
-.config/i3/config
-.config/i3/i3blocks.conf
-.config/i3/app-icons.json
-.config/rofi/config.rasi
-.config/compton/compton.conf
 .config/gtk-3.0/settings.ini
 .config/gtk-4.0/settings.ini
 .config/nvim/init.lua
 .config/nvim/lua/mappings.lua
-.fehbg
 tmux.conf:.tmux.conf
 "
 DIRS="

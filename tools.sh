@@ -147,7 +147,7 @@ apt_install \
     libsasl2-dev libldap2-dev libssl-dev \
     ruby-dev cargo \
     grc lolcat moreutils coreutils cryptsetup ncdu locate \
-    ripgrep jq unzip curl wget git zsh gum \
+    ripgrep jq unzip curl wget git gum \
     xclip wl-clipboard \
     unrar strace
 

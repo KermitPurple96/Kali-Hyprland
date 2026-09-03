@@ -12,20 +12,22 @@
 # animations, rounded corners and blur.
 #
 # USAGE
-#   ./install.sh                 interactive, asks what to install
-#   ./install.sh --hyprland      Hyprland only,  no questions asked
-#   ./install.sh --i3            i3 only,        no questions asked
-#   ./install.sh --both          both session types
-#   ./install.sh --all           both + Oh My Zsh + the VMware session entries
+#   ./install.sh                 install everything
+#   ./install.sh --all           + the VMware session entries
 #
 #   --yes / -y     answer yes to every prompt (implied by --all)
-#   --no-zsh       never install Oh My Zsh
 #   --vmware       also deploy the root-side VMware bits (session launcher
 #                  and login entries) by calling vmware/update-system.sh
 #   --skip-upgrade skip `apt upgrade` (still does `apt update`)
 #   -h / --help    this text
 #
 # Run it as your normal user. It calls sudo only where it must.
+#
+# i3 was this repo's original session, back when it was kali-clean/i3-kitty.
+# Hyprland replaced it and this installer is Hyprland-only now; the i3
+# config lived on for a while as a second, optional session but nobody was
+# still choosing it, so it, `compton`, `rofi` and `usr/share/i3blocks/`
+# came out. `git log` has the i3 install path if you ever need it back.
 
 set -euo pipefail
 
@@ -51,10 +53,7 @@ warn() { printf '    %s!  %s%s\n' "$c_warn" "$*" "$c_reset"; }
 die()  { printf '\n%sERROR: %s%s\n' "$c_err" "$*" "$c_reset" >&2; exit 1; }
 
 # ------------------------------------------------------------------ flags ---
-INSTALL_HYPRLAND=""
-INSTALL_I3=""
 ASSUME_YES=0
-WANT_ZSH=""
 WANT_VMWARE=0
 SKIP_UPGRADE=0
 
@@ -68,13 +67,8 @@ usage() {
 
 while [ $# -gt 0 ]; do
     case "$1" in
-        --hyprland)     INSTALL_HYPRLAND=true;  INSTALL_I3=${INSTALL_I3:-false} ;;
-        --i3)           INSTALL_I3=true;        INSTALL_HYPRLAND=${INSTALL_HYPRLAND:-false} ;;
-        --both)         INSTALL_HYPRLAND=true;  INSTALL_I3=true ;;
-        --all)          INSTALL_HYPRLAND=true;  INSTALL_I3=true
-                        ASSUME_YES=1; WANT_ZSH=true; WANT_VMWARE=1 ;;
+        --all)          ASSUME_YES=1; WANT_VMWARE=1 ;;
         -y|--yes)       ASSUME_YES=1 ;;
-        --no-zsh)       WANT_ZSH=false ;;
         --vmware)       WANT_VMWARE=1 ;;
         --skip-upgrade) SKIP_UPGRADE=1 ;;
         -h|--help)      usage ;;
@@ -89,28 +83,6 @@ if [ "${EUID:-$(id -u)}" -eq 0 ]; then
 fi
 
 command -v apt >/dev/null 2>&1 || die "this installer expects a Debian/Kali system (no apt found)"
-
-# Ask up front rather than half way through a long install.
-if [ -z "$INSTALL_HYPRLAND" ] && [ -z "$INSTALL_I3" ]; then
-    echo "╦ ╦╦ ╦╔═╗╦═╗╦  ╔═╗╔╗╔╔╦╗"
-    echo "╠═╣╚╦╝╠═╝╠╦╝║  ╠═╣║║║ ║║"
-    echo "╩ ╩ ╩ ╩  ╩╚═╩═╝╩ ╩╝╚╝═╩╝"
-    echo
-    echo "Which setup would you like to install?"
-    echo "  1) Hyprland (Wayland)  -- animations, rounded corners, blur"
-    echo "  2) i3 (X11)            -- the classic kali-clean setup"
-    echo "  3) Both                -- pick either one at the login screen"
-    echo
-    read -r -p "Enter your choice (1/2/3): " choice
-    case "$choice" in
-        1) INSTALL_HYPRLAND=true;  INSTALL_I3=false ;;
-        2) INSTALL_HYPRLAND=false; INSTALL_I3=true  ;;
-        3) INSTALL_HYPRLAND=true;  INSTALL_I3=true  ;;
-        *) die "invalid choice: $choice" ;;
-    esac
-fi
-INSTALL_HYPRLAND=${INSTALL_HYPRLAND:-false}
-INSTALL_I3=${INSTALL_I3:-false}
 
 # Take the sudo prompt now, so a long unattended run does not stall on it
 # twenty minutes in.
@@ -170,10 +142,10 @@ fi
 # Everything kali-clean installs that is not specific to X11 or to Wayland.
 hdr "Installing common tools"
 # NOTE what is deliberately NOT here: flameshot, feh, lxappearance and
-# unclutter. All four are X11-only and Hyprland replaces every one of them
-# (grim+slurp, swaybg, nwg-look, cursor:inactive_timeout), so they moved
-# into the i3 branch below. A --hyprland install now pulls no X11 desktop
-# tooling it cannot use. See ./tools.sh --voided for the full accounting.
+# unclutter. All four are X11-only, for the i3 session this repo no longer
+# installs; Hyprland replaces every one of them (grim+slurp, swaybg,
+# nwg-look, cursor:inactive_timeout). See ./tools.sh --voided for the full
+# accounting of what was dropped, and why.
 apt_install \
     arc-theme \
     papirus-icon-theme \
@@ -200,7 +172,7 @@ apt_install \
 # ----------------------------------------------------------------- fonts ---
 # These configs name three families:
 #   Hack Nerd Font        kitty, waybar, wofi, dunst, the Hyprland groupbar
-#   RobotoMono Nerd Font  the i3 bar and window titles
+#   RobotoMono Nerd Font  waybar/wofi fallback, after Hack Nerd Font
 #   Iosevka Nerd Font     kali-clean shipped it, kept for parity
 #
 # NOTE the Debian package `fonts-hack` is NOT the same thing as Hack Nerd
@@ -298,7 +270,6 @@ backup_and_make() {
 hdr "Installing wallpapers"
 mkdir -p "$HOME/.wallpaper"
 cp -n "$REPO"/.wallpaper/* "$HOME/.wallpaper/" 2>/dev/null || true
-install -m 755 "$REPO/.fehbg" "$HOME/.fehbg"
 if [ -f "$HOME/.wallpaper/$WALLPAPER_NAME" ]; then
     ok "default wallpaper: ~/.wallpaper/$WALLPAPER_NAME"
     info "(John Martin, 'Le Pandemonium', Louvre)"
@@ -307,186 +278,128 @@ else
     warn "the next image in ~/.wallpaper, or to a flat #1C1D2B background"
 fi
 
-# -------------------------------------------------------------- i3blocks ---
-# The pentest status blocks. i3blocks resolves a bare block name to
-# /usr/share/i3blocks/$BLOCK_NAME, so these have to be there, not in $HOME.
-# fish's `iface`/`mip` functions and its VPN/iface startup checks read from
-# here too (see .config/fish/config.fish), regardless of which session gets
-# installed, so this has to run for a Hyprland-only install as well -- not
-# just under --i3. (waybar's own scripts under ~/.config/waybar/scripts
-# detect the interface themselves and do not need this file.)
-hdr "Installing i3blocks scripts"
-info "installing i3blocks scripts -> /usr/share/i3blocks/"
+# ------------------------------------------------------- shared iface file --
+# /usr/share/i3blocks/iface is a holdover name from when this repo still had
+# an i3blocks-driven i3 session -- it is not that any more, but fish's
+# `iface`/`mip` functions and its VPN/iface startup checks still read and
+# write this exact path (see .config/fish/config.fish), and waybar's ethernet
+# and gateway scripts check it first before falling back to autodetecting
+# the default route. Keeping the path avoids touching all three of those.
+hdr "Creating the shared network-interface file"
 sudo mkdir -p /usr/share/i3blocks
-for f in "$REPO"/usr/share/i3blocks/*.sh; do
-    sudo install -m 755 "$f" /usr/share/i3blocks/
-done
-# The interface name the ethernet/gateway blocks read. Default it to
-# whatever actually carries the default route rather than a hardcoded
-# eth0, which is wrong on most VMs (ens33, enp0s3...).
 if [ ! -s /usr/share/i3blocks/iface ]; then
     detected=$(ip route show default 2>/dev/null | awk '/default/{print $5; exit}')
     printf '%s\n' "${detected:-eth0}" | sudo tee /usr/share/i3blocks/iface >/dev/null
-    info "i3blocks iface = ${detected:-eth0}"
-fi
-
-# ---------------------------------------------------------------- i3 (X11) --
-if [ "$INSTALL_I3" = true ]; then
-    hdr "Installing i3 (X11)"
-    # No i3-gaps source build. Gaps have been part of upstream i3 since
-    # 4.22 -- Kali ships 4.25 with src/gaps.c compiled in -- so the whole
-    # meson/ninja build kali-clean did, and the ~25 -dev packages it needed,
-    # are gone. `gaps inner 2` in the config just works.
-    # These four are X11-only and belong to the i3 session alone:
-    #   feh          ~/.fehbg wallpaper (cannot paint a Wayland root window)
-    #   flameshot    $mod+P screenshot (Hyprland uses grim + slurp)
-    #   lxappearance GTK theming        (Hyprland uses nwg-look)
-    #   unclutter    hide the pointer   (Hyprland: cursor:inactive_timeout)
-    apt_install \
-        i3 \
-        i3-wm \
-        i3status \
-        i3blocks \
-        rofi \
-        arandr \
-        compton \
-        picom \
-        xclip \
-        feh \
-        flameshot \
-        lxappearance \
-        unclutter \
-        fonts-font-awesome
-
-    hdr "Deploying i3 configuration"
-    for d in i3 compton rofi; do backup_and_make "$d"; done
-    cp -r "$REPO"/.config/i3/.      "$HOME/.config/i3/"
-    cp -r "$REPO"/.config/compton/. "$HOME/.config/compton/"
-    cp -r "$REPO"/.config/rofi/.    "$HOME/.config/rofi/"
-    chmod +x "$HOME/.config/i3/clipboard_fix.sh" 2>/dev/null || true
-
-    # i3-workspace-names-daemon puts an app glyph next to each workspace
-    # number (i3/app-icons.json). pip, because it is not packaged.
-    if ! command -v i3-workspace-names-daemon >/dev/null 2>&1; then
-        pipx install i3-workspace-names-daemon >/dev/null 2>&1 \
-            || pip3 install --user --break-system-packages i3-workspace-names-daemon >/dev/null 2>&1 \
-            || warn "could not install i3-workspace-names-daemon (workspace icons will be off)"
-    fi
-    apt_install fonts-font-awesome
-    ok "i3 configured"
+    info "iface = ${detected:-eth0}"
+else
+    ok "already set: $(cat /usr/share/i3blocks/iface)"
 fi
 
 # --------------------------------------------------------- Hyprland (Wayland) --
-if [ "$INSTALL_HYPRLAND" = true ]; then
-    hdr "Installing Hyprland (Wayland)"
-    apt_install \
-        hyprland \
-        xdg-desktop-portal-hyprland \
-        xwayland \
-        waybar \
-        wofi \
-        dunst \
-        grim \
-        slurp \
-        wl-clipboard \
-        swaybg \
-        swaylock \
-        swayidle \
-        wireplumber \
-        network-manager-gnome \
-        blueman \
-        mate-polkit \
-        qt6ct
+hdr "Installing Hyprland (Wayland)"
+apt_install \
+    hyprland \
+    xdg-desktop-portal-hyprland \
+    xwayland \
+    waybar \
+    wofi \
+    dunst \
+    grim \
+    slurp \
+    wl-clipboard \
+    swaybg \
+    swaylock \
+    swayidle \
+    wireplumber \
+    network-manager-gnome \
+    blueman \
+    mate-polkit \
+    qt6ct
 
-    # The Wayland-native replacements for the X11 tools kali-clean used.
-    # None of these is load-bearing -- the desktop comes up without them --
-    # so they go in their own call and a missing one is just a warning.
-    hdr "Installing Wayland equivalents of the i3-kitty X11 tools"
-    info "fuzzel    -> rofi           (launcher -- the fast one, see below)"
-    info "cliphist  -> clipmenu        (clipboard history, SUPER+C)"
-    info "nwg-look  -> lxappearance    (GTK theming)"
-    info "wdisplays -> arandr          (monitor layout)"
-    # fuzzel matters more than the rest: wofi re-matches ~345 desktop
-    # entries and repaints its whole layer on every keystroke, which on a
-    # software renderer is what makes SUPER+D stutter and drop keys.
-    # fuzzel is a native Wayland client with an in-memory index.
-    apt_install \
-        fuzzel \
-        cliphist \
-        nwg-look \
-        wdisplays \
-        wlr-randr \
-        wtype \
-        hyprpicker
+# The Wayland-native replacements for the X11 tools kali-clean used.
+# None of these is load-bearing -- the desktop comes up without them --
+# so they go in their own call and a missing one is just a warning.
+hdr "Installing Wayland equivalents of the i3-kitty X11 tools"
+info "fuzzel    -> rofi           (launcher -- the fast one, see below)"
+info "cliphist  -> clipmenu        (clipboard history, SUPER+C)"
+info "nwg-look  -> lxappearance    (GTK theming)"
+info "wdisplays -> arandr          (monitor layout)"
+# fuzzel matters more than the rest: wofi re-matches ~345 desktop
+# entries and repaints its whole layer on every keystroke, which on a
+# software renderer is what makes SUPER+D stutter and drop keys.
+# fuzzel is a native Wayland client with an in-memory index.
+apt_install \
+    fuzzel \
+    cliphist \
+    nwg-look \
+    wdisplays \
+    wlr-randr \
+    wtype \
+    hyprpicker
 
-    if command -v fuzzel >/dev/null 2>&1; then
-        ok "fuzzel installed -- SUPER+D will use it"
-    else
-        warn "fuzzel not installed; SUPER+D falls back to wofi, which is slower"
-    fi
-
-    # The pentest status-bar blocks read these. i3-kitty created them in
-    # config.sh; without them the bar shows "no target"/"no domain", which
-    # is correct but the files should exist so you can just echo into them.
-    hdr "Creating the ~/.config/bin state files the status bar reads"
-    mkdir -p "$HOME/.config/bin"
-    for f in target.txt domain.txt ttl.txt target_sys.txt session.txt name.txt; do
-        [ -e "$HOME/.config/bin/$f" ] || : > "$HOME/.config/bin/$f"
-    done
-    ok "~/.config/bin ready (target, domain, ttl, target_sys, session)"
-    info "set one with:  echo 10.10.11.5 > ~/.config/bin/target.txt"
-    info "start the session clock:  date +%s > ~/.config/bin/session.txt"
-
-    hdr "Deploying Hyprland configuration"
-    for d in hypr waybar wofi dunst fuzzel; do backup_and_make "$d"; done
-    mkdir -p "$HOME/.config/hypr/scripts" "$HOME/.config/waybar/scripts"
-    cp -r "$REPO"/.config/hypr/.   "$HOME/.config/hypr/"
-    cp -r "$REPO"/.config/waybar/. "$HOME/.config/waybar/"
-    cp -r "$REPO"/.config/wofi/.   "$HOME/.config/wofi/"
-    cp -r "$REPO"/.config/dunst/.  "$HOME/.config/dunst/"
-    cp -r "$REPO"/.config/fuzzel/. "$HOME/.config/fuzzel/"
-
-    # Only hyprland.lua is deployed. Hyprland 0.51+ reads the Lua config;
-    # 0.56 still loads a hyprland.conf but warns that support goes away in
-    # 0.57. The .conf build of this same setup lives in legacy/ -- for
-    # older Hyprland only, and never both files in ~/.config/hypr at once.
-    HYPR_MINOR=$(Hyprland --version 2>/dev/null \
-        | grep -oE 'Hyprland [0-9]+\.[0-9]+' | head -1 | cut -d. -f2)
-    if [ -n "${HYPR_MINOR:-}" ] && [ "$HYPR_MINOR" -lt 51 ] 2>/dev/null; then
-        warn "Hyprland 0.$HYPR_MINOR predates the Lua config -- installing legacy/hyprland.conf"
-        rm -f "$HOME/.config/hypr/hyprland.lua"
-        cp "$REPO/legacy/hyprland.conf" "$HOME/.config/hypr/hyprland.conf"
-    else
-        rm -f "$HOME/.config/hypr/hyprland.conf"
-    fi
-
-    chmod +x "$HOME"/.config/hypr/scripts/*.sh   2>/dev/null || true
-    chmod +x "$HOME"/.config/waybar/scripts/*.sh 2>/dev/null || true
-
-    # Firefox launcher override.
-    #
-    # Firefox is single-instance per profile and finds the running copy over
-    # D-Bus. Kali uses dbus-user-session, which is ONE bus per user rather
-    # than per login session, so a Firefox already running on an X11 session
-    # is reachable from the Hyprland one -- and launching it here just makes
-    # a window appear over there instead. This user-level .desktop shadows
-    # the system entry so the launcher goes through scripts/firefox.sh,
-    # which detects that case. Remove the file to undo.
-    mkdir -p "$HOME/.local/share/applications"
-    if [ -f "$REPO/.local/share/applications/firefox-esr.desktop" ]; then
-        sed "s#/home/kermit/#$HOME/#g" \
-            "$REPO/.local/share/applications/firefox-esr.desktop" \
-            > "$HOME/.local/share/applications/firefox-esr.desktop"
-        update-desktop-database "$HOME/.local/share/applications" 2>/dev/null || true
-        ok "Firefox launcher override installed"
-    fi
-
-    # The Hyprland config reuses kali-clean's VM clipboard fix.
-    mkdir -p "$HOME/.config/i3"
-    cp -n "$REPO/.config/i3/clipboard_fix.sh" "$HOME/.config/i3/" 2>/dev/null || true
-    chmod +x "$HOME/.config/i3/clipboard_fix.sh" 2>/dev/null || true
-    ok "Hyprland configured"
+if command -v fuzzel >/dev/null 2>&1; then
+    ok "fuzzel installed -- SUPER+D will use it"
+else
+    warn "fuzzel not installed; SUPER+D falls back to wofi, which is slower"
 fi
+
+# The pentest status-bar blocks read these. i3-kitty created them in
+# config.sh; without them the bar shows "no target"/"no domain", which
+# is correct but the files should exist so you can just echo into them.
+hdr "Creating the ~/.config/bin state files the status bar reads"
+mkdir -p "$HOME/.config/bin"
+for f in target.txt domain.txt ttl.txt target_sys.txt session.txt name.txt; do
+    [ -e "$HOME/.config/bin/$f" ] || : > "$HOME/.config/bin/$f"
+done
+ok "~/.config/bin ready (target, domain, ttl, target_sys, session)"
+info "set one with:  echo 10.10.11.5 > ~/.config/bin/target.txt"
+info "start the session clock:  date +%s > ~/.config/bin/session.txt"
+
+hdr "Deploying Hyprland configuration"
+for d in hypr waybar wofi dunst fuzzel; do backup_and_make "$d"; done
+mkdir -p "$HOME/.config/hypr/scripts" "$HOME/.config/waybar/scripts"
+cp -r "$REPO"/.config/hypr/.   "$HOME/.config/hypr/"
+cp -r "$REPO"/.config/waybar/. "$HOME/.config/waybar/"
+cp -r "$REPO"/.config/wofi/.   "$HOME/.config/wofi/"
+cp -r "$REPO"/.config/dunst/.  "$HOME/.config/dunst/"
+cp -r "$REPO"/.config/fuzzel/. "$HOME/.config/fuzzel/"
+
+# Only hyprland.lua is deployed. Hyprland 0.51+ reads the Lua config;
+# 0.56 still loads a hyprland.conf but warns that support goes away in
+# 0.57. The .conf build of this same setup lives in legacy/ -- for
+# older Hyprland only, and never both files in ~/.config/hypr at once.
+HYPR_MINOR=$(Hyprland --version 2>/dev/null \
+    | grep -oE 'Hyprland [0-9]+\.[0-9]+' | head -1 | cut -d. -f2)
+if [ -n "${HYPR_MINOR:-}" ] && [ "$HYPR_MINOR" -lt 51 ] 2>/dev/null; then
+    warn "Hyprland 0.$HYPR_MINOR predates the Lua config -- installing legacy/hyprland.conf"
+    rm -f "$HOME/.config/hypr/hyprland.lua"
+    cp "$REPO/legacy/hyprland.conf" "$HOME/.config/hypr/hyprland.conf"
+else
+    rm -f "$HOME/.config/hypr/hyprland.conf"
+fi
+
+chmod +x "$HOME"/.config/hypr/scripts/*.sh   2>/dev/null || true
+chmod +x "$HOME"/.config/waybar/scripts/*.sh 2>/dev/null || true
+
+# Firefox launcher override.
+#
+# Firefox is single-instance per profile and finds the running copy over
+# D-Bus. Kali uses dbus-user-session, which is ONE bus per user rather
+# than per login session, so a Firefox already running on an X11 session
+# is reachable from the Hyprland one -- and launching it here just makes
+# a window appear over there instead. This user-level .desktop shadows
+# the system entry so the launcher goes through scripts/firefox.sh,
+# which detects that case. Remove the file to undo.
+mkdir -p "$HOME/.local/share/applications"
+if [ -f "$REPO/.local/share/applications/firefox-esr.desktop" ]; then
+    sed "s#/home/kermit/#$HOME/#g" \
+        "$REPO/.local/share/applications/firefox-esr.desktop" \
+        > "$HOME/.local/share/applications/firefox-esr.desktop"
+    update-desktop-database "$HOME/.local/share/applications" 2>/dev/null || true
+    ok "Firefox launcher override installed"
+fi
+
+ok "Hyprland configured"
 
 # ------------------------------------------------------------------ kitty ---
 hdr "Deploying Kitty configuration"
@@ -557,29 +470,9 @@ else
     warn "fish is NOT installed but kitty.conf sets 'shell fish' -- fix one or the other"
 fi
 
-# ------------------------------------------------------------- Oh My Zsh ---
-if [ -z "$WANT_ZSH" ]; then
-    if [ "$ASSUME_YES" -eq 1 ]; then
-        WANT_ZSH=false
-    else
-        read -r -p "Would you like to install Oh My Zsh? (y/N): " a
-        case "$a" in [yY]*) WANT_ZSH=true ;; *) WANT_ZSH=false ;; esac
-    fi
-fi
-if [ "$WANT_ZSH" = true ]; then
-    hdr "Installing Oh My Zsh"
-    if [ -d "$HOME/.oh-my-zsh" ]; then
-        ok "already installed"
-    else
-        sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" "" --unattended \
-            || warn "Oh My Zsh install failed -- carrying on"
-    fi
-fi
-
 # ------------------------------------------------------------------- done ---
 hdr "Installation complete"
 
-if [ "$INSTALL_HYPRLAND" = true ]; then
 cat <<'HYPR'
 
   Hyprland
@@ -615,23 +508,10 @@ cat <<'HYPR'
     HYPR_EFFECTS=full   everything, for a machine with a real GPU
     HYPR_EFFECTS=lite   rounding only, the panic button
 HYPR
-fi
-
-if [ "$INSTALL_I3" = true ]; then
-cat <<'I3'
-
-  i3
-  --
-  Log out and pick "i3" at the login screen, then:
-    lxappearance          and choose arc-dark
-    wal -i ~/.wallpaper/John_Martin_Le_Pandemonium_Louvre.jpg   (optional colours)
-I3
-fi
 
 echo
 echo "  Wallpaper: ~/.wallpaper/$WALLPAPER_NAME"
-echo "  Change it by editing ~/.fehbg (i3) or setting WALLPAPER=/path/to.jpg"
-echo "  before the session starts (Hyprland)."
+echo "  Change it by setting WALLPAPER=/path/to.jpg before the session starts."
 echo
 echo "  See README.md for the full keymap and VMWARE-NOTES.md for the"
 echo "  VMware-specific details."
