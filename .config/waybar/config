@@ -73,6 +73,7 @@
     "custom/vpn": {
         "interval": 5,
         "exec": "$HOME/.config/waybar/scripts/vpn.sh",
+        "on-click": "$HOME/.config/waybar/scripts/copy-field.sh vpn",
         "return-type": "json",
         "format": "{icon} {}",
         "format-icons": {
@@ -87,6 +88,7 @@
     "custom/ethernet": {
         "interval": 5,
         "exec": "$HOME/.config/waybar/scripts/ethernet.sh",
+        "on-click": "$HOME/.config/waybar/scripts/copy-field.sh ethernet",
         "format": " {}",
         "tooltip": false
     },
@@ -95,6 +97,7 @@
     "custom/gateway": {
         "interval": 5,
         "exec": "$HOME/.config/waybar/scripts/gateway.sh",
+        "on-click": "$HOME/.config/waybar/scripts/copy-field.sh gateway",
         "format": "泌 {}",
         "tooltip": false
     },
@@ -103,6 +106,7 @@
     "custom/domain": {
         "interval": 5,
         "exec": "$HOME/.config/waybar/scripts/domain.sh",
+        "on-click": "$HOME/.config/waybar/scripts/copy-field.sh domain",
         "format": "{}",
         "tooltip": false
     },
@@ -111,6 +115,7 @@
     "custom/target_sys": {
         "interval": 5,
         "exec": "$HOME/.config/waybar/scripts/target_sys.sh",
+        "on-click": "$HOME/.config/waybar/scripts/copy-field.sh target_sys",
         "format": "{}",
         "tooltip": false
     },
@@ -119,6 +124,7 @@
     "custom/target": {
         "interval": 5,
         "exec": "$HOME/.config/waybar/scripts/target.sh",
+        "on-click": "$HOME/.config/waybar/scripts/copy-field.sh target",
         "format": "什 {}",
         "tooltip": false
     },
@@ -127,6 +133,7 @@
     "custom/session": {
         "interval": 5,
         "exec": "$HOME/.config/waybar/scripts/session.sh",
+        "on-click": "$HOME/.config/waybar/scripts/copy-field.sh session",
         "format": " {}",
         "tooltip": false
     },

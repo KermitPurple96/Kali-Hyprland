@@ -25,6 +25,8 @@
 
 set -u
 
+. "$(dirname "$0")/fields-clipboard.sh"
+
 TTL=300
 RUNDIR="${XDG_RUNTIME_DIR:-/tmp}"
 # Shared with usr/share/i3blocks/vpn_status.sh on purpose: the answer does
@@ -35,6 +37,7 @@ CACHE="$RUNDIR/egress-ip"
 # waybar reads one JSON object per line. Every value below is an IP, an
 # interface name or a literal, so none of them need escaping.
 emit() {    # emit <state> <text> <tooltip>
+    save_field vpn "${2%\?}"
     printf '{"text":"%s","alt":"%s","class":"%s","tooltip":"%s"}\n' "$2" "$1" "$1" "$3"
     exit 0
 }

@@ -747,6 +747,8 @@ hl.bind(mainMod .. " + A", hl.dsp.focus({ last = true }))
 -- i3-kitty: bindsym $mod+c exec --no-startup-id clipmenu
 -- clipmenu is X11-only; cliphist is the Wayland equivalent.
 hl.bind(mainMod .. " + C", hl.dsp.exec_cmd("~/.config/hypr/scripts/clipboard.sh"))
+-- Same picker, but deletes the chosen entry instead of pasting it.
+hl.bind(mainMod .. " + ALT + C", hl.dsp.exec_cmd("~/.config/hypr/scripts/clipboard-delete.sh"))
 
 -- i3-kitty: bindsym $mod+n  rename the focused workspace (was i3-input)
 hl.bind(mainMod .. " + N", hl.dsp.exec_cmd("~/.config/hypr/scripts/workspace-rename.sh"))

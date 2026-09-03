@@ -249,6 +249,7 @@ kitty's own `ctrl+j/k/i/o` window navigation matches.
 | Key | Action |
 |---|---|
 | `SUPER + C` | Clipboard history (cliphist + fuzzel) |
+| `SUPER + ALT + C` | Delete an entry from clipboard history (same picker) |
 | `SUPER + SHIFT + C` | Reload the config |
 | `SUPER + SHIFT + R` | Reload the config (i3's "restart") |
 | `SUPER + SHIFT + E` | Exit, with a confirmation prompt |
@@ -276,6 +277,13 @@ nothing of kitty's own is shadowed. Everything else below is kitty's default.
 > `SUPER + SHIFT + R` cannot be used for renaming tabs: Hyprland binds it to
 > reload, and the compositor sees every key first. That is why renaming lives
 > on kitty's default `CTRL+SHIFT+ALT+T`.
+
+> `CTRL + SHIFT + N` shells out to a kitten that lives in its own repo,
+> [mikesmithgh/kitty-scrollback.nvim](https://github.com/mikesmithgh/kitty-scrollback.nvim)
+> — kitty does not ship it. `install.sh` now clones it to
+> `~/kitty.app/kitty-scrollback.nvim` (idempotent, same pattern as
+> `tmux-themepack`); without that step the binding fails with `[Errno 2] No
+> existe el fichero o el directorio`.
 
 ---
 
@@ -337,6 +345,27 @@ echo lab.local    > ~/.config/bin/domain.txt
 echo windows      > ~/.config/bin/ttl.txt
 date +%s          > ~/.config/bin/session.txt   # starts the session clock
 ```
+
+### Click to copy
+
+Every custom module on the bar — egress IP, ethernet, gateway, domain,
+target OS, target, session — copies its current value on left click. A
+module showing a placeholder (`no domain`, `Disconnected`, `offline`…) copies
+nothing; there is nothing worth pasting in that state.
+
+Under Hyprland this goes further: `.config/waybar/scripts/fields-clipboard.sh`
+has every module save its value to `$XDG_RUNTIME_DIR/waybar-fields/` on its
+own interval, and the moment a value actually changes it is also pushed
+straight into `cliphist` — bypassing the live clipboard, so it never steals
+whatever you last copied elsewhere. By the time you press `SUPER + C` the
+IP/gateway/domain/target are already sitting in the history to pick, with
+nothing to click first. `copy-field.sh` is the click handler (wired in as
+each module's `on-click`); `SUPER + ALT + C` (`clipboard-delete.sh`) removes
+an entry from that history the same way `SUPER + C` picks one out.
+
+The i3 session gets the click-to-copy half only — `xclip` via i3blocks'
+`BLOCK_BUTTON` click protocol (`usr/share/i3blocks/copy-to-clipboard.sh`) —
+since cliphist is Wayland-only; clipmenu is what i3-kitty used there instead.
 
 ---
 
@@ -479,16 +508,19 @@ sync.sh                    capture ~/.config back into the repo
 .config/
 ├── hypr/
 │   ├── hyprland.lua       the config (Hyprland 0.51+)
-│   └── scripts/           wallpaper, screenshot, launcher, dmenu, clipboard,
-│                          exit, firefox, workspace-rename/clear, polkit
-├── waybar/                bar + the seven pentest scripts
+│   └── scripts/           wallpaper, screenshot, launcher, dmenu,
+│                          clipboard, clipboard-delete, exit, firefox,
+│                          workspace-rename/clear, polkit
+├── waybar/                bar + the seven pentest scripts, plus
+│                          fields-clipboard.sh/copy-field.sh (click to copy)
 ├── fuzzel/  wofi/  dunst/ launcher and notifications
 ├── kitty/   fish/  nvim/  terminal, shell, editor
 ├── i3/  compton/  rofi/   the X11 session
 └── …
 legacy/hyprland.conf       same setup in the pre-0.51 .conf format
 vmware/                    session launcher, login entries, apt hook
-usr/share/i3blocks/        the pentest blocks, for the i3 session
+usr/share/i3blocks/        the pentest blocks, for the i3 session, plus
+                            copy-to-clipboard.sh (click to copy, via xclip)
 ```
 
 **Which config file does Hyprland read?** 0.51+ reads `hyprland.lua`. 0.56

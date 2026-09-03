@@ -1,5 +1,7 @@
 #!/bin/bash
 
+. /usr/share/i3blocks/copy-to-clipboard.sh
+
 start_time=$(/usr/bin/cat /home/kermit/.config/bin/session.txt)
 
 if [[ -s /home/kermit/.config/bin/session.txt ]]; then
@@ -7,5 +9,6 @@ if [[ -s /home/kermit/.config/bin/session.txt ]]; then
     now=$(date +%s)
     elapsed=$((now - start_time))
     elapsed_str=$(date -u -d @$elapsed +%H:%M:%S)
+    copy_on_click "$elapsed_str"
     echo "$elapsed_str"
 fi

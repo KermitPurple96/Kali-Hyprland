@@ -8,13 +8,17 @@
 # to stderr on every run -- once per interval, forever. It still produced
 # the right time, because bash carries on after that error, so it looked
 # fine in the bar while quietly filling the log. Rewritten without it.
+. "$(dirname "$0")/fields-clipboard.sh"
+
 f="$HOME/.config/bin/session.txt"
-[ -s "$f" ] || { printf '\n'; exit 0; }
+[ -s "$f" ] || { save_field session ""; printf '\n'; exit 0; }
 
 start=$(cat "$f" 2>/dev/null | tr -d '[:space:]')
-case "$start" in ''|*[!0-9]*) printf '\n'; exit 0 ;; esac
+case "$start" in ''|*[!0-9]*) save_field session ""; printf '\n'; exit 0 ;; esac
 
 now=$(date +%s)
 elapsed=$(( now - start ))
 [ "$elapsed" -lt 0 ] && elapsed=0
-printf '%s\n' "$(date -u -d "@$elapsed" +%H:%M:%S)"
+elapsed_str=$(date -u -d "@$elapsed" +%H:%M:%S)
+save_field session "$elapsed_str"
+printf '%s\n' "$elapsed_str"

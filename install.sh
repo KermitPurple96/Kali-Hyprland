@@ -506,6 +506,17 @@ if grep -qE '^\s*shell\s+fish' "$HOME/.config/kitty/kitty.conf" 2>/dev/null \
 fi
 ok "kitty configured"
 
+# kitty.conf's ctrl+shift+n binding shells out to a kitten that lives in
+# mikesmithgh/kitty-scrollback.nvim's own repo -- kitty does not ship it.
+# i3-kitty's config.sh cloned it to this same path as root inside its
+# all-in-one install; this is that same step, ported over so a plain user
+# account gets it too instead of hitting "No existe el fichero" on first use.
+if [ ! -d "$HOME/kitty.app/kitty-scrollback.nvim" ]; then
+    git clone -q --depth 1 https://github.com/mikesmithgh/kitty-scrollback.nvim \
+        "$HOME/kitty.app/kitty-scrollback.nvim" \
+        || warn "could not clone kitty-scrollback.nvim -- ctrl+shift+n in kitty will fail"
+fi
+
 # -------------------------------------------------------------- VMware bits --
 if [ "$WANT_VMWARE" -eq 1 ]; then
     hdr "Deploying the VMware session launcher and login entries"

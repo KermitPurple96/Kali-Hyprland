@@ -20,6 +20,8 @@
 
 set -u
 
+. /usr/share/i3blocks/copy-to-clipboard.sh
+
 TTL=300
 RUNDIR="${XDG_RUNTIME_DIR:-/tmp}"
 # Shared with the waybar script on purpose: the answer does not depend on
@@ -35,8 +37,8 @@ emit() {    # emit <icon> <colour> <text>
     exit 0
 }
 
-vpn()      { emit "$ICON_VPN"      '#38DE07' "$1"; }
-external() { emit "$ICON_EXTERNAL" '#ffa500' "$1"; }
+vpn()      { copy_on_click "$1"; emit "$ICON_VPN"      '#38DE07' "$1"; }
+external() { copy_on_click "${1%\?}"; emit "$ICON_EXTERNAL" '#ffa500' "$1"; }
 offline()  { emit "$ICON_OFFLINE"  '#ff0000' "$1"; }
 
 # --- 1. a VPN interface, if there is one -------------------------------
