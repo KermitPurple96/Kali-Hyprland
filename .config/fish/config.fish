@@ -183,7 +183,7 @@ function info
     echo -e "$green [+]$endcolor $blue tx $endcolor tmux shortcuts"
     echo -e "$green [+]$endcolor $blue iface <interface>$endcolor Define interface to show in i3blocks"
     echo -e "$green [+]$endcolor $blue mipk$endcolor Print current iface ip"
-    echo -e "$green [+]$endcolor $blue mip$endcolor Print VPN tun0 ip"
+    echo -e "$green [+]$endcolor $blue mip$endcolor Print VPN ip"
     echo -e "$green [+]$endcolor $blue tg$endcolor Defines IP target"
     echo -e "$green [+]$endcolor $blue mk$endcolor Makes working environment"
     echo -e "$green [+]$endcolor $blue stop$endcolor Stops yellow watch"
@@ -335,19 +335,23 @@ function burpro
 end
 
 
-if ifdata -e tun0
-    set -gx miip (/usr/sbin/ifconfig tun0 | grep inet | awk '{print $2}')
-    echo -e (set_color green)"\n\n\t[+]"(set_color normal)" VPN tun0 interface detected \n"
-else
-    echo -e (set_color red)"\n\n\t[-]"(set_color normal)" No VPN tun0 interface detected \n"
-end
+# Detects a VPN under any name, not just tun0/tap0: POINTOPOINT is the
+# kernel flag set on tun, WireGuard and PPP devices regardless of what
+# they are called, which alone covers OpenVPN, WireGuard and every
+# WireGuard-based provider (NordLynx, Mullvad, ProtonVPN's WG mode). The
+# name-prefix fallback catches bridged/TAP-mode VPNs and a couple of
+# userspace clients that do not always set POINTOPOINT.
+set -l vpn_if (ip -o link show up 2>/dev/null | awk -F': ' '
+    $0 ~ /POINTOPOINT/ && !found { found = $2 }
+    $2 ~ /^(tun|tap|wg|ppp|nordlynx|proton|mullvad|tailscale|zerotier|zt|ipsec|vti|xfrm)/ && !named { named = $2 }
+    END { if (found) print found; else if (named) print named }
+')
 
-# Verifica si la interfaz tap0 está presente
-if ifdata -e tap0
-    set -gx miip (/usr/sbin/ifconfig tap0 | grep inet | awk '{print $2}')
-    echo -e (set_color green)"\t[+]"(set_color normal)" VPN tap0 interface detected \n"
+if test -n "$vpn_if"
+    set -gx miip (ip -4 -o addr show dev $vpn_if scope global 2>/dev/null | awk '{split($4, a, "/"); print a[1]; exit}')
+    echo -e (set_color green)"\n\n\t[+]"(set_color normal)" VPN interface detected: $vpn_if ($miip)\n"
 else
-    echo -e (set_color red)"\t[-]"(set_color normal)" No VPN tap0 interface detected \n"
+    echo -e (set_color red)"\n\n\t[-]"(set_color normal)" No VPN interface detected\n"
 end
 
 

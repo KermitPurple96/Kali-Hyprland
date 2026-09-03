@@ -29,9 +29,6 @@ set -u
 
 TTL=300
 RUNDIR="${XDG_RUNTIME_DIR:-/tmp}"
-# Shared with usr/share/i3blocks/vpn_status.sh on purpose: the answer does
-# not depend on which session asked, so whichever bar ran last saves the
-# other a lookup.
 CACHE="$RUNDIR/egress-ip"
 
 # waybar reads one JSON object per line. Every value below is an IP, an
@@ -43,22 +40,33 @@ emit() {    # emit <state> <text> <tooltip>
 }
 
 # --- 1. a VPN interface, if there is one -------------------------------
-# OpenVPN is tun/tap, WireGuard is wg (and whatever name the consumer
-# clients pick for their own wg device), PPTP/L2TP is ppp.
+# Two signals, so this catches a VPN under any name, not just the ones
+# listed below:
+#
+#   POINTOPOINT   the kernel sets this flag on tun, WireGuard and PPP
+#                 devices -- it is what "point-to-point" means, and it is
+#                 true no matter what the interface is named. On its own
+#                 this already covers OpenVPN, WireGuard and every
+#                 WireGuard-based provider (NordLynx, Mullvad, ProtonVPN's
+#                 WG mode) without having to know their interface names.
+#   name prefix   a fallback for bridged/TAP-mode VPNs, which look like a
+#                 plain NIC at the flag level, plus a couple of userspace
+#                 clients that do not always set POINTOPOINT.
 #
 # Deliberately NOT "which interface holds the default route": on an HTB or
 # OffSec VPN the default route stays on the WAN and only the lab subnet is
 # pushed through tun0. The tunnel address is still the one the targets see,
 # so it is the one to show.
-vpn=$(ip -4 -o addr show up scope global 2>/dev/null | awk '
-    $2 ~ /^(tun|tap|wg|ppp|nordlynx|proton|mullvad|tailscale)/ {
-        split($4, a, "/"); print $2, a[1]; exit
-    }')
+vpn_if=$(ip -o link show up 2>/dev/null | awk -F': ' '
+    $0 ~ /POINTOPOINT/ && !found { found = $2 }
+    $2 ~ /^(tun|tap|wg|ppp|nordlynx|proton|mullvad|tailscale|zerotier|zt|ipsec|vti|xfrm)/ && !named { named = $2 }
+    END { if (found) print found; else if (named) print named }
+')
 
-if [ -n "$vpn" ]; then
-    iface=${vpn%% *}
-    addr=${vpn##* }
-    emit vpn "$addr" "VPN up on $iface -- traffic to the lab leaves as $addr"
+if [ -n "$vpn_if" ]; then
+    addr=$(ip -4 -o addr show dev "$vpn_if" scope global 2>/dev/null \
+        | awk '{split($4, a, "/"); print a[1]; exit}')
+    [ -n "$addr" ] && emit vpn "$addr" "VPN up on $vpn_if -- traffic to the lab leaves as $addr"
 fi
 
 # --- 2. no VPN: the public address of the default route ----------------
