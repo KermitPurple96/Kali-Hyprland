@@ -441,7 +441,6 @@ if [ "$WANT_VMWARE" -eq 1 ]; then
 fi
 
 # --------------------------------------------- shell / editor / tmux ---
-# These are window-manager agnostic, so they go on for both sessions.
 hdr "Deploying fish, neovim and tmux configuration"
 apt_install fish tmux neovim fzf ripgrep bat jq
 
@@ -451,6 +450,27 @@ for f in config.fish fish_variables; do
     cp "$REPO/.config/fish/$f" "$HOME/.config/fish/$f"
 done
 cp "$REPO"/.config/fish/functions/*.fish "$HOME/.config/fish/functions/"
+
+# NvChad. init.lua/mappings.lua below are this repo's overrides on top of
+# NvChad's own starter scaffold (chadrc.lua, lua/configs/*, lua/plugins/,
+# lua/options.lua, lua/autocmds.lua) -- this repo has only ever shipped
+# the two files it customizes, not the scaffold underneath them, so a
+# clean ~/.config/nvim makes init.lua's `require "configs.lazy"` fail on
+# first launch with "module 'configs.lazy' not found". Only fill in what
+# is missing (cp -n): an existing scaffold, and any edits made to it,
+# are left alone.
+if [ ! -f "$HOME/.config/nvim/lua/configs/lazy.lua" ]; then
+    tmp="$(mktemp -d)"
+    if git clone -q --depth 1 https://github.com/NvChad/starter "$tmp"; then
+        mkdir -p "$HOME/.config/nvim"
+        cp -rn "$tmp"/. "$HOME/.config/nvim/"
+        ok "NvChad starter scaffold installed"
+    else
+        warn "could not clone the NvChad starter -- nvim will fail on first launch"
+    fi
+    rm -rf "$tmp"
+fi
+
 cp "$REPO/.config/nvim/init.lua"         "$HOME/.config/nvim/init.lua"
 cp "$REPO/.config/nvim/lua/mappings.lua" "$HOME/.config/nvim/lua/mappings.lua"
 [ -f "$HOME/.tmux.conf" ] && cp "$HOME/.tmux.conf" "$HOME/.tmux.conf.bak.$STAMP"
@@ -460,6 +480,15 @@ if [ ! -d "$HOME/.tmux-themepack" ]; then
         || warn "could not clone tmux-themepack"
 fi
 cp "$REPO/basic.tmuxtheme" "$HOME/.tmux-themepack/basic.tmuxtheme" 2>/dev/null || true
+
+# root gets fish too -- `su`/`sudo su` exec the target user's shell as
+# recorded in /etc/passwd, not the invoking user's, so without this root
+# still drops into bash even though fish is now everyone else's shell.
+if [ -x /usr/bin/fish ]; then
+    grep -qxF /usr/bin/fish /etc/shells || echo /usr/bin/fish | sudo tee -a /etc/shells >/dev/null
+    sudo usermod -s /usr/bin/fish root
+fi
+
 ok "fish / neovim / tmux configured"
 
 # kitty.conf ends with `shell fish`, so fish has to exist or kitty opens a
