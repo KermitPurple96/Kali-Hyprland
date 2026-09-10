@@ -219,6 +219,60 @@ second copy exits silently rather than fighting the first over the output.
 
 ---
 
+## The cursor flickered constantly (and was fine under i3/X11)
+
+**Symptom.** The mouse cursor blinks/flickers in Hyprland — over the desktop,
+window borders, everywhere. Under i3/X11 on the same VM it was rock solid.
+
+**Root cause.** Aquamarine was drawing the cursor through the vmwgfx **KMS
+hardware cursor plane**, which is unreliable in a VMware guest. The evidence
+is in `hyprland.log`: thousands of
+
+```
+legacy drm: cursor fb: 26 with bo handle 1 from fd 61, size [Vector2D: x: 64, y: 64]
+drm: Cursor buffer imported into KMS with id 117
+```
+
+lines, with the buffer re-imported on every shape change. X11 never used that
+plane, which is why the cursor was stable there.
+
+The config *looked* protected: `hl.env("WLR_NO_HARDWARE_CURSORS", "1")` had
+been carried over from the i3/wlroots world. But that is a wlroots variable
+that Hyprland 0.56/Aquamarine **ignores entirely** — `hyprctl getoption
+cursor:no_hardware_cursors` showed `0` (hardware cursors allowed) the whole
+time.
+
+**Fix.** The real switch in 0.56 is a config option, in `hyprland.lua`:
+
+```lua
+cursor = {
+    no_hardware_cursors = 1,
+},
+```
+
+`1` composites the cursor into every frame (a software cursor) and bypasses
+the KMS cursor plane. The plane traffic in the log stops immediately. The
+`WLR_NO_HARDWARE_CURSORS` env line is kept, but only for any future
+wlroots-based compositor on this box.
+
+Two things that are NOT needed, having checked:
+
+- **The cursor theme needed no work.** `XCURSOR_THEME=Dracula-cursors` +
+  `XCURSOR_SIZE=24` (env in the same file) apply to the compositor too, and
+  the XCursor-only theme in `~/.icons` is found — `hyprland.log` prints
+  `XCursor scanning theme Dracula-cursors` / `XCursor using theme path
+  /home/kermit/.icons/Dracula-cursors/cursors`.
+- **There is no `cursor:theme` / `cursor:size` config option in 0.56**
+  (`hyprctl getoption cursor:theme` → "no such option"). Theme and size come
+  from the env vars only. Don't add them to the `cursor` block.
+
+One operational quirk: with the Lua config parser, `hyprctl reload` does not
+re-apply `hl.config` blocks — use
+`hyprctl eval 'hl.config({cursor = {no_hardware_cursors = 1}})'` to apply a
+change to a running session. On login the config file is read normally.
+
+---
+
 ## Host<->guest copy/paste silently did nothing
 
 **Symptom.** `clipboard_fix.sh` runs, `vmtoolsd -n vmusr` is alive and well —

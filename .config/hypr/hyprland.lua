@@ -221,6 +221,10 @@ hl.env("MOZ_ENABLE_WAYLAND", "1")
 -- Software rendering: keep these consistent with the session wrapper
 -- (vmware/start-hyprland-vmware decides the same thing from dmesg).
 hl.env("LIBGL_ALWAYS_SOFTWARE",    "1")
+-- IGNORED by Hyprland 0.56/Aquamarine (it is a wlroots variable). The
+-- cursor is forced to software rendering by `cursor:no_hardware_cursors`
+-- in the config block below, which is the switch that actually exists.
+-- Kept only so a future wlroots-based compositor on this box still gets it.
 hl.env("WLR_NO_HARDWARE_CURSORS",  "1")
 
 -----------------------
@@ -257,6 +261,23 @@ hl.config({
         layout           = "dwindle",
         resize_on_border = true,
         allow_tearing    = false,
+    },
+
+    -- Cursor. In this VMware guest the cursor must NOT go through the
+    -- vmwgfx KMS cursor plane: it flickers constantly (hyprland.log fills
+    -- with "legacy drm: cursor fb" / "Cursor buffer imported into KMS").
+    -- i3/X11 never used that plane, which is why the cursor was stable
+    -- there. WLR_NO_HARDWARE_CURSORS above is a wlroots variable that
+    -- Hyprland 0.56/Aquamarine ignores -- this option is the real switch:
+    -- 1 composites the cursor into every frame, i.e. a software cursor.
+    --
+    -- There is deliberately no theme/size in this block: 0.56 has no
+    -- cursor:theme or cursor:size options (check `hyprctl getoption
+    -- cursor:theme` -> "no such option"). The theme comes from the
+    -- XCURSOR_THEME env above; "XCursor scanning theme Dracula-cursors"
+    -- in hyprland.log confirms it loads from ~/.icons.
+    cursor = {
+        no_hardware_cursors = 1,
     },
 
     decoration = {
