@@ -271,6 +271,20 @@ re-apply `hl.config` blocks — use
 `hyprctl eval 'hl.config({cursor = {no_hardware_cursors = 1}})'` to apply a
 change to a running session. On login the config file is read normally.
 
+**2026-10 update: the boot-time value is unreliable.** The flicker came back
+months later with the config untouched: on some boots Hyprland 0.56.2 ends up
+with `cursor:no_hardware_cursors = 0` even though the file sets `1`. Verified
+by reproducing in a throwaway *nested* Hyprland session on this box — fresh
+boot of the very same config reported `int: 0 set: true` while every other
+`hl.config` option (gaps, rounding, kb_layout, ...) applied correctly, and no
+entry appeared in `hyprctl configerrors`. It worked when first added, so this
+smells like a startup race rather than a parse error. The config's
+`hyprland.start` autostart now re-applies the option once after startup via
+`hyprctl eval` (same command as above), which sticks every time. If the cursor
+ever flickers again, check `hyprctl getoption cursor:no_hardware_cursors` —
+it must print `int: 1` — and whether `hyprland.log` is accumulating
+`legacy drm: cursor fb` lines again.
+
 ---
 
 ## Host<->guest copy/paste silently did nothing

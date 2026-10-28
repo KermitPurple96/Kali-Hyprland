@@ -198,6 +198,15 @@ hl.on("hyprland.start", function()
     hl.exec_cmd("dbus-update-activation-environment --systemd WAYLAND_DISPLAY XDG_CURRENT_DESKTOP")
     hl.exec_cmd("systemctl --user import-environment WAYLAND_DISPLAY XDG_CURRENT_DESKTOP")
 
+    -- Software-cursor enforcement. The `cursor` block at the top level is
+    -- the real config, but on some boots Hyprland 0.56.2 ends up with
+    -- cursor:no_hardware_cursors = 0 anyway (reproduced in a nested session;
+    -- hyprland.log then fills with "legacy drm: cursor fb" again and the
+    -- cursor flickers, worst over Firefox where the shape changes most).
+    -- Re-applying it once, after startup, sticks every time -- same reason
+    -- the rescue terminal above is here: belt and suspenders.
+    hl.exec_cmd("hyprctl eval 'hl.config({cursor = {no_hardware_cursors = 1}})'")
+
     -- Rescue terminal. Cheap insurance: if keybinds ever fail to register
     -- again you still land in a usable window instead of a bare desktop.
     hl.exec_cmd(terminal)
